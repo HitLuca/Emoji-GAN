@@ -1,12 +1,10 @@
+import os
 import pickle
-import sys
 
 from keras.layers import *
 
-sys.path.append("..")
-import utils
-import wgan_gp_utils
-import os
+from models import utils
+from wgan_gp import wgan_gp_utils
 
 
 class WGAN_GP:
@@ -43,7 +41,8 @@ class WGAN_GP:
     def _build_models(self):
         self._generator = wgan_gp_utils.build_generator(self._latent_dim, self._resolution, self._channels)
         self._critic = wgan_gp_utils.build_critic(self._resolution, self._channels)
-        self._generator_model = wgan_gp_utils.build_generator_model(self._generator, self._critic, self._latent_dim, self._generator_lr)
+        self._generator_model = wgan_gp_utils.build_generator_model(self._generator, self._critic, self._latent_dim,
+                                                                    self._generator_lr)
         self._critic_model = wgan_gp_utils.build_critic_model(self._generator, self._critic, self._latent_dim,
                                                               self._resolution, self._channels, self._batch_size,
                                                               self._critic_lr, self._gradient_penality_weight)

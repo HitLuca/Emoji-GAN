@@ -1,4 +1,3 @@
-import sys
 from functools import partial
 
 from keras import Model
@@ -7,24 +6,21 @@ from keras.layers.merge import _Merge
 from keras.losses import mean_squared_error
 from keras.optimizers import Adam
 
-sys.path.append("..")
-import utils
+from models import utils
 
 
-def build_encoder(latent_dim, resolution, channels, filters = 32, kernel_size=3):
+def build_encoder(latent_dim, resolution, channels, filters=32, kernel_size=3):
     image_size = resolution
 
     encoder_inputs = Input((resolution, resolution, channels))
     encoded = encoder_inputs
 
     while image_size != 2:
-        encoded = Conv2D(filters, kernel_size, padding='same')(encoded)
-        # encoded = utils.BatchNormalization()(encoded)
+        encoded = Conv2D(filters, kernel_size, strides=2, padding='same')(encoded)
+        encoded = utils.BatchNormalization()(encoded)
         encoded = LeakyReLU(0.2)(encoded)
-        encoded = MaxPooling2D(2, padding='same')(encoded)
-
         image_size /= 2
-        filters = filters*2
+        filters = filters * 2
 
     encoded = Conv2D(filters, kernel_size, padding='same')(encoded)
     encoded = LeakyReLU(0.2)(encoded)
@@ -38,15 +34,14 @@ def build_encoder(latent_dim, resolution, channels, filters = 32, kernel_size=3)
     return encoder
 
 
-def build_decoder(latent_dim, resolution, channels, filters=128, kernel_size=3):
+def build_decoder(latent_dim, resolution, channels, filters=256, kernel_size=3):
     image_size = 1
 
     decoder_inputs = Input((latent_dim,))
     decoded = Reshape((1, 1, latent_dim))(decoder_inputs)
 
     while image_size != resolution:
-        decoded = UpSampling2D(2)(decoded)
-        decoded = Conv2D(filters, kernel_size, padding='same')(decoded)
+        decoded = Conv2DTranspose(filters, kernel_size, strides=2, padding='same')(decoded)
         decoded = utils.BatchNormalization()(decoded)
         decoded = LeakyReLU(0.2)(decoded)
         image_size *= 2
@@ -65,12 +60,10 @@ def build_critic(resolution, channels, filters=32, kernel_size=3):
     criticized = critic_inputs
 
     while image_size != 2:
-        criticized = Conv2D(filters, kernel_size, padding='same')(criticized)
+        criticized = Conv2D(filters, kernel_size, strides=2, padding='same')(criticized)
         criticized = LeakyReLU(0.2)(criticized)
-        criticized = MaxPooling2D(2, padding='same')(criticized)
-
         image_size /= 2
-        filters = filters*2
+        filters = filters * 2
 
     criticized = Conv2D(filters, kernel_size, padding='same')(criticized)
     criticized = LeakyReLU(0.2)(criticized)

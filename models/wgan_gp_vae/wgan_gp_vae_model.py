@@ -1,12 +1,10 @@
 import os
 import pickle
-import sys
 
 from keras.layers import *
 
-sys.path.append("..")
-import utils
-import wgan_gp_vae_utils
+from models import utils
+from wgan_gp_vae import wgan_gp_vae_utils
 
 
 class WGAN_GP_VAE:

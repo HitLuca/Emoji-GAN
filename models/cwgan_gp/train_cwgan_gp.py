@@ -1,8 +1,7 @@
-import sys
 import numpy as np
-from cwgan_gp import CWGAN_GP
-sys.path.append("..")
-import utils
+
+from cwgan_gp.cwgan_gp_model import CWGAN_GP
+from models import utils
 
 batch_size = 32
 resolution = 16

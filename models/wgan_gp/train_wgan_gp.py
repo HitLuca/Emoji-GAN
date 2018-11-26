@@ -1,8 +1,7 @@
-import sys
 import numpy as np
-from wgan_gp import WGAN_GP
-sys.path.append("..")
-import utils
+
+from models import utils
+from wgan_gp.wgan_gp_model import WGAN_GP
 
 batch_size = 32
 resolution = 16
@@ -26,5 +25,5 @@ config_2 = {
 
 config = utils.merge_config_and_save(config_2)
 
-wgan_gp = WGAN_GP(config)
-losses = wgan_gp.train(dataset)
+wgan_gp_model = WGAN_GP(config)
+losses = wgan_gp_model.train(dataset)

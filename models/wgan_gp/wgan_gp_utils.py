@@ -1,4 +1,3 @@
-import sys
 from functools import partial
 
 from keras import Model
@@ -6,23 +5,21 @@ from keras.layers import *
 from keras.layers.merge import _Merge
 from keras.optimizers import Adam
 
-sys.path.append("..")
-import utils
+from models import utils
 
 
-def build_generator(latent_dim, resolution, channels, filters=128, kernel_size=3):
+def build_generator(latent_dim, resolution, channels, filters=256, kernel_size=3):
     image_size = 1
 
     generator_inputs = Input((latent_dim,))
     generated = Reshape((1, 1, latent_dim))(generator_inputs)
 
     while image_size != resolution:
-        # generated = UpSampling2D(2)(generated)
         generated = Conv2DTranspose(filters, kernel_size, strides=2, padding='same')(generated)
         generated = utils.BatchNormalization()(generated)
         generated = LeakyReLU(0.2)(generated)
         image_size *= 2
-        filters = int(filters/2)
+        filters = int(filters / 2)
 
     generated = Conv2D(channels, kernel_size, padding='same', activation='tanh')(generated)
 
@@ -39,10 +36,8 @@ def build_critic(resolution, channels, filters=32, kernel_size=3):
     while image_size != 2:
         criticized = Conv2D(filters, kernel_size, strides=2, padding='same')(criticized)
         criticized = LeakyReLU(0.2)(criticized)
-        # criticized = MaxPooling2D(2, padding='same')(criticized)
-
         image_size /= 2
-        filters = filters*2
+        filters = filters * 2
 
     criticized = Conv2D(filters, kernel_size, padding='same')(criticized)
     criticized = LeakyReLU(0.2)(criticized)

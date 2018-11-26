@@ -1,12 +1,10 @@
+import os
 import pickle
-import sys
 
 from keras.layers import *
 
-sys.path.append("..")
-import utils
-import cwgan_gp_utils
-import os
+from cwgan_gp import cwgan_gp_utils
+from models import utils
 
 
 class CWGAN_GP:
@@ -105,8 +103,8 @@ class CWGAN_GP:
             if self._epoch % self._dataset_generation_frequency == 0:
                 self._generate_dataset()
 
-            # if self._epoch % self._lr_decay_steps == 0:
-            #     self._apply_lr_decay()
+                # if self._epoch % self._lr_decay_steps == 0:
+                #     self._apply_lr_decay()
 
         self._generate_dataset()
         self._save_losses()
@@ -125,7 +123,8 @@ class CWGAN_GP:
         generated_samples = self._generator.predict([noise, classes_samples_onehot])
 
         filenames = [self._img_dir + ('/%07d.png' % self._epoch), self._img_dir + '/last.png']
-        utils.save_samples_classes(generated_samples, self._class_names[classes_samples], rows, columns, self._resolution, self._channels, filenames)
+        utils.save_samples_classes(generated_samples, self._class_names[classes_samples], rows, columns,
+                                   self._resolution, self._channels, filenames)
 
     def _save_latent_space(self):
         grid_size = 6
@@ -143,7 +142,8 @@ class CWGAN_GP:
         generated_samples = self._generator.predict([latent_space_inputs, chosen_class])
 
         filenames = [self._img_dir + '/latent_space.png']
-        utils.save_latent_space_classes(generated_samples, self._class_names[random_class[0]], grid_size, self._resolution, self._channels, filenames)
+        utils.save_latent_space_classes(generated_samples, self._class_names[random_class[0]], grid_size,
+                                        self._resolution, self._channels, filenames)
 
     def _save_losses(self):
         utils.save_losses_wgan(self._losses, self._img_dir + '/losses.png')

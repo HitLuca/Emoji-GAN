@@ -215,3 +215,4 @@ dataset/img/
 dataset/*.npy
 dataset/*.json
 **/outputs
+.idea/

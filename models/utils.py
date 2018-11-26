@@ -15,7 +15,7 @@ from matplotlib import pyplot as plt
 def load_unlabelled_dataset(company, resolution, channels):
     unlabelled_dataset_filepath = '../../dataset/'
     dataset = np.load(unlabelled_dataset_filepath + company + '_' + str(resolution) + '.npy')
-    return np.reshape(dataset, (dataset.shape[0]*dataset.shape[1], resolution, resolution, channels))
+    return np.reshape(dataset, (dataset.shape[0] * dataset.shape[1], resolution, resolution, channels))
 
 
 def load_labelled_dataset(company, resolution, channels):
@@ -57,7 +57,7 @@ def save_samples_classes(generated_data, labels, rows, columns, resolution, chan
     for i in range(rows):
         for j in range(columns):
             plt.subplot(rows, columns, k)
-            plt.title(labels[k-1])
+            plt.title(labels[k - 1])
             plt.imshow((generated_data[k - 1].reshape(resolution, resolution, channels) + 1.0) / 2.0)
             plt.xticks([])
             plt.yticks([])
@@ -440,4 +440,3 @@ class BatchNormalization(Layer):
 
     def compute_output_shape(self, input_shape):
         return input_shape
-
