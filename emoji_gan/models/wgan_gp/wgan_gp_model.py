@@ -2,15 +2,11 @@ import os
 import pickle
 
 from keras.layers import *
-
-from cwgan_gp import cwgan_gp_utils
+from models.wgan_gp import wgan_gp_utils
 from models import utils
 
-
-class CWGAN_GP:
+class WGAN_GP:
     def __init__(self, config):
-        self._classes_n = config['classes_n']
-        self._class_names = np.array(config['class_names'])
         self._channels = config['channels']
         self._batch_size = config['batch_size']
         self._epochs = config['epochs']
@@ -41,17 +37,15 @@ class CWGAN_GP:
         self._build_models()
 
     def _build_models(self):
-        self._generator = cwgan_gp_utils.build_generator(self._latent_dim, self._classes_n, self._resolution,
-                                                         self._channels)
-        self._critic = cwgan_gp_utils.build_critic(self._resolution, self._channels, self._classes_n)
-        self._generator_model = cwgan_gp_utils.build_generator_model(self._generator, self._critic, self._latent_dim,
-                                                                     self._classes_n, self._generator_lr)
-        self._critic_model = cwgan_gp_utils.build_critic_model(self._generator, self._critic, self._latent_dim,
-                                                               self._resolution, self._channels, self._classes_n,
-                                                               self._batch_size, self._critic_lr,
-                                                               self._gradient_penality_weight)
+        self._generator = wgan_gp_utils.build_generator(self._latent_dim, self._resolution, self._channels)
+        self._critic = wgan_gp_utils.build_critic(self._resolution, self._channels)
+        self._generator_model = wgan_gp_utils.build_generator_model(self._generator, self._critic, self._latent_dim,
+                                                                    self._generator_lr)
+        self._critic_model = wgan_gp_utils.build_critic_model(self._generator, self._critic, self._latent_dim,
+                                                              self._resolution, self._channels, self._batch_size,
+                                                              self._critic_lr, self._gradient_penality_weight)
 
-    def train(self, dataset, classes):
+    def train(self, dataset, *_):
         ones = np.ones((self._batch_size, 1))
         neg_ones = -ones
         zeros = np.zeros((self._batch_size, 1))
@@ -62,10 +56,8 @@ class CWGAN_GP:
             for _ in range(self._n_critic):
                 indexes = np.random.randint(0, dataset.shape[0], self._batch_size)
                 real_samples = dataset[indexes]
-                classes_samples = classes[indexes]
-                classes_samples = np.eye(self._classes_n)[classes_samples]
                 noise = np.random.normal(0, 1, (self._batch_size, self._latent_dim))
-                inputs = [real_samples, noise, classes_samples]
+                inputs = [real_samples, noise]
 
                 critic_losses.append(self._critic_model.train_on_batch(inputs, [ones, neg_ones, zeros])[0])
             critic_loss = np.mean(critic_losses)
@@ -73,9 +65,7 @@ class CWGAN_GP:
             generator_losses = []
             for _ in range(self._n_generator):
                 noise = np.random.normal(0, 1, (self._batch_size, self._latent_dim))
-                classes_samples = np.random.randint(0, self._classes_n, self._batch_size)
-                classes_samples = np.eye(self._classes_n)[classes_samples]
-                inputs = [noise, classes_samples]
+                inputs = [noise]
 
                 generator_losses.append(self._generator_model.train_on_batch(inputs, ones))
             generator_loss = np.mean(generator_losses)
@@ -103,8 +93,8 @@ class CWGAN_GP:
             if self._epoch % self._dataset_generation_frequency == 0:
                 self._generate_dataset()
 
-                # if self._epoch % self._lr_decay_steps == 0:
-                #     self._apply_lr_decay()
+            if self._epoch % self._lr_decay_steps == 0:
+                self._apply_lr_decay()
 
         self._generate_dataset()
         self._save_losses()
@@ -117,14 +107,10 @@ class CWGAN_GP:
     def _save_samples(self):
         rows, columns = 6, 6
         noise = np.random.normal(0, 1, (rows * columns, self._latent_dim))
-        classes_samples = np.random.randint(0, self._classes_n, rows * columns)
-        classes_samples_onehot = np.eye(self._classes_n)[classes_samples]
-
-        generated_samples = self._generator.predict([noise, classes_samples_onehot])
+        generated_samples = self._generator.predict(noise)
 
         filenames = [self._img_dir + ('/%07d.png' % self._epoch), self._img_dir + '/last.png']
-        utils.save_samples_classes(generated_samples, self._class_names[classes_samples], rows, columns,
-                                   self._resolution, self._channels, filenames)
+        utils.save_samples(generated_samples, rows, columns, self._resolution, self._channels, filenames)
 
     def _save_latent_space(self):
         grid_size = 6
@@ -135,15 +121,10 @@ class CWGAN_GP:
             for j, v_j in enumerate(np.linspace(-1.5, 1.5, grid_size, True)):
                 latent_space_inputs[i * grid_size + j, :2] = [v_i, v_j]
 
-        random_class = np.random.randint(0, self._classes_n)
-        random_class = np.repeat(random_class, grid_size * grid_size)
-        chosen_class = np.eye(self._classes_n)[random_class]
-
-        generated_samples = self._generator.predict([latent_space_inputs, chosen_class])
+        generated_samples = self._generator.predict(latent_space_inputs)
 
         filenames = [self._img_dir + '/latent_space.png']
-        utils.save_latent_space_classes(generated_samples, self._class_names[random_class[0]], grid_size,
-                                        self._resolution, self._channels, filenames)
+        utils.save_latent_space(generated_samples, grid_size, self._resolution, self._channels, filenames)
 
     def _save_losses(self):
         utils.save_losses_wgan(self._losses, self._img_dir + '/losses.png')
@@ -160,15 +141,10 @@ class CWGAN_GP:
         self._critic.save(dir + 'critic.h5')
 
     def _generate_dataset(self):
-        noise_samples = np.random.normal(0, 1, (self._dataset_generation_size, self._latent_dim))
-        classes_samples = np.random.randint(0, self._classes_n, self._dataset_generation_size)
-        classes_samples_onehot = np.eye(self._classes_n)[classes_samples]
-
-        generated_dataset = self._generator.predict([noise_samples, classes_samples_onehot])
+        z_samples = np.random.normal(0, 1, (self._dataset_generation_size, self._latent_dim))
+        generated_dataset = self._generator.predict(z_samples)
         np.save(self._generated_datesets_dir + ('/%d_generated_data' % self._epoch), generated_dataset)
-        np.save(self._generated_datesets_dir + ('/%d_classes' % self._epoch), self._class_names[classes_samples])
         np.save(self._generated_datesets_dir + '/last', generated_dataset)
-        np.save(self._generated_datesets_dir + '/last_classes', self._class_names[classes_samples])
 
     def get_models(self):
         return self._generator, self._critic, self._generator_model, self._critic_model

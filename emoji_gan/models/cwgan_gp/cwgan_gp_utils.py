@@ -5,14 +5,17 @@ from keras.layers import *
 from keras.layers.merge import _Merge
 from keras.optimizers import Adam
 
-from models import utils
+from .. import utils
 
 
-def build_generator(latent_dim, resolution, channels, filters=256, kernel_size=3):
+def build_generator(latent_dim, classes_n, resolution, channels, filters=256, kernel_size=3):
     image_size = 1
 
-    generator_inputs = Input((latent_dim,))
-    generated = Reshape((1, 1, latent_dim))(generator_inputs)
+    latent_input = Input((latent_dim,))
+    conditional_input = Input((classes_n,))
+
+    generator_inputs = Concatenate()([latent_input, conditional_input])
+    generated = Reshape((1, 1, latent_dim + classes_n))(generator_inputs)
 
     while image_size != resolution:
         generated = Conv2DTranspose(filters, kernel_size, strides=2, padding='same')(generated)
@@ -23,11 +26,11 @@ def build_generator(latent_dim, resolution, channels, filters=256, kernel_size=3
 
     generated = Conv2D(channels, kernel_size, padding='same', activation='tanh')(generated)
 
-    generator = Model(generator_inputs, generated, 'generator')
+    generator = Model([latent_input, conditional_input], generated, 'generator')
     return generator
 
 
-def build_critic(resolution, channels, filters=32, kernel_size=3):
+def build_critic(resolution, channels, classes_n, filters=32, kernel_size=3):
     image_size = resolution
 
     critic_inputs = Input((resolution, resolution, channels))
@@ -44,50 +47,56 @@ def build_critic(resolution, channels, filters=32, kernel_size=3):
 
     criticized = Flatten()(criticized)
 
+    class_input = Input((classes_n,))
+    criticized = Concatenate()([criticized, class_input])
+
     criticized = Dense(50)(criticized)
     criticized = LeakyReLU(0.2)(criticized)
     criticized = Dense(1)(criticized)
 
-    critic = Model(critic_inputs, criticized, 'critic')
-
+    critic = Model([critic_inputs, class_input], criticized, 'critic')
     return critic
 
 
-def build_generator_model(generator, critic, latent_dim, generator_lr):
+def build_generator_model(generator, critic, latent_dim, classes_n, generator_lr):
     utils.set_model_trainable(generator, True)
     utils.set_model_trainable(critic, False)
 
     noise_samples = Input((latent_dim,))
-    generated_samples = generator(noise_samples)
+    class_samples = Input((classes_n,))
 
-    generated_criticized = critic(generated_samples)
+    generated_samples = generator([noise_samples, class_samples])
 
-    generator_model = Model([noise_samples], generated_criticized, 'generator_model')
+    generated_criticized = critic([generated_samples, class_samples])
+
+    generator_model = Model([noise_samples, class_samples], generated_criticized, 'generator_model')
     generator_model.compile(optimizer=Adam(generator_lr, beta_1=0, beta_2=0.9), loss=utils.wasserstein_loss)
     return generator_model
 
 
-def build_critic_model(generator, critic, latent_dim, resolution, channels, batch_size, critic_lr,
+def build_critic_model(generator, critic, latent_dim, resolution, channels, classes_n, batch_size, critic_lr,
                        gradient_penality_weight):
     utils.set_model_trainable(generator, False)
     utils.set_model_trainable(critic, True)
 
     noise_samples = Input((latent_dim,))
+    class_samples = Input((classes_n,))
+
     real_samples = Input((resolution, resolution, channels))
 
-    generated_samples = generator(noise_samples)
-    generated_criticized = critic(generated_samples)
-    real_criticized = critic(real_samples)
+    generated_samples = generator([noise_samples, class_samples])
+    generated_criticized = critic([generated_samples, class_samples])
+    real_criticized = critic([real_samples, class_samples])
 
     averaged_samples = RandomWeightedAverage(batch_size)([real_samples, generated_samples])
-    averaged_criticized = critic(averaged_samples)
+    averaged_criticized = critic([averaged_samples, class_samples])
 
     partial_gp_loss = partial(gradient_penalty_loss,
                               averaged_samples=averaged_samples,
                               gradient_penalty_weight=gradient_penality_weight)
     partial_gp_loss.__name__ = 'gradient_penalty'
 
-    critic_model = Model([real_samples, noise_samples],
+    critic_model = Model([real_samples, noise_samples, class_samples],
                          [real_criticized, generated_criticized, averaged_criticized], 'critic_model')
 
     critic_model.compile(optimizer=Adam(critic_lr, beta_1=0, beta_2=0.9),

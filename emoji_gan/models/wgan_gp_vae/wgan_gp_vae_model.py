@@ -2,21 +2,20 @@ import os
 import pickle
 
 from keras.layers import *
-
 from models import utils
-from wgan_gp import wgan_gp_utils
+
+from models.wgan_gp_vae import wgan_gp_vae_utils
 
 
-class WGAN_GP:
+class WGAN_GP_VAE:
     def __init__(self, config):
-        self._channels = config['channels']
         self._batch_size = config['batch_size']
         self._epochs = config['epochs']
         self._resolution = config['resolution']
+        self._channels = config['channels']
         self._n_critic = config['n_critic']
         self._n_generator = config['n_generator']
         self._latent_dim = config['latent_dim']
-
         self._generator_lr = config['generator_lr']
         self._critic_lr = config['critic_lr']
         self._img_frequency = config['img_frequency']
@@ -30,24 +29,36 @@ class WGAN_GP:
         self._img_dir = config['img_dir']
         self._model_dir = config['model_dir']
         self._generated_datesets_dir = config['generated_datesets_dir']
+        self._gamma = config['gamma']
 
         self._lr_decay_factor = config['lr_decay_factor']
         self._lr_decay_steps = config['lr_decay_steps']
 
         self._epoch = 0
-        self._losses = [[], []]
+        self._losses = [[], [], []]
         self._build_models()
 
     def _build_models(self):
-        self._generator = wgan_gp_utils.build_generator(self._latent_dim, self._resolution, self._channels)
-        self._critic = wgan_gp_utils.build_critic(self._resolution, self._channels)
-        self._generator_model = wgan_gp_utils.build_generator_model(self._generator, self._critic, self._latent_dim,
-                                                                    self._generator_lr)
-        self._critic_model = wgan_gp_utils.build_critic_model(self._generator, self._critic, self._latent_dim,
-                                                              self._resolution, self._channels, self._batch_size,
-                                                              self._critic_lr, self._gradient_penality_weight)
+        self._encoder = wgan_gp_vae_utils.build_encoder(self._latent_dim, self._resolution, self._channels)
+        self._decoder_generator = wgan_gp_vae_utils.build_decoder(self._latent_dim, self._resolution, self._channels)
+        self._critic = wgan_gp_vae_utils.build_critic(self._resolution, self._channels)
 
-    def train(self, dataset):
+        self._vae_model, self._generator = wgan_gp_vae_utils.build_vae_model(self._encoder,
+                                                                             self._decoder_generator,
+                                                                             self._critic,
+                                                                             self._latent_dim,
+                                                                             self._resolution,
+                                                                             self._channels,
+                                                                             self._gamma,
+                                                                             self._generator_lr)
+
+        self._critic_model = wgan_gp_vae_utils.build_critic_model(self._encoder, self._decoder_generator, self._critic,
+                                                                  self._latent_dim,
+                                                                  self._resolution,
+                                                                  self._channels, self._batch_size, self._critic_lr,
+                                                                  self._gradient_penality_weight)
+
+    def train(self, dataset, *_):
         ones = np.ones((self._batch_size, 1))
         neg_ones = -ones
         zeros = np.zeros((self._batch_size, 1))
@@ -65,20 +76,29 @@ class WGAN_GP:
             critic_loss = np.mean(critic_losses)
 
             generator_losses = []
+            vae_losses = []
             for _ in range(self._n_generator):
+                indexes = np.random.randint(0, dataset.shape[0], self._batch_size)
+                real_samples = dataset[indexes]
                 noise = np.random.normal(0, 1, (self._batch_size, self._latent_dim))
-                inputs = [noise]
+                inputs = [real_samples, noise]
 
-                generator_losses.append(self._generator_model.train_on_batch(inputs, ones))
+                losses = self._vae_model.train_on_batch(inputs, [ones, ones])
+                generator_losses.append(losses[1])
+                vae_losses.append(losses[2])
             generator_loss = np.mean(generator_losses)
+            vae_loss = np.mean(vae_losses)
 
             generator_loss = float(-generator_loss)
             critic_loss = float(-critic_loss)
+            vae_loss = float(vae_loss)
 
             self._losses[0].append(generator_loss)
             self._losses[1].append(critic_loss)
+            self._losses[2].append(vae_loss)
 
-            print("%d [C loss: %+.6f] [G loss: %+.6f]" % (self._epoch, critic_loss, generator_loss))
+            print("%d [C loss: %+.6f] [G loss: %+.6f] [VAE loss: %+.6f]" % (
+                self._epoch, critic_loss, generator_loss, vae_loss))
 
             if self._epoch % self._loss_frequency == 0:
                 self._save_losses()
@@ -109,10 +129,10 @@ class WGAN_GP:
     def _save_samples(self):
         rows, columns = 6, 6
         noise = np.random.normal(0, 1, (rows * columns, self._latent_dim))
-        generated_samples = self._generator.predict(noise)
+        generated_transactions = self._generator.predict(noise)
 
         filenames = [self._img_dir + ('/%07d.png' % self._epoch), self._img_dir + '/last.png']
-        utils.save_samples(generated_samples, rows, columns, self._resolution, self._channels, filenames)
+        utils.save_samples(generated_transactions, rows, columns, self._resolution, self._channels, filenames)
 
     def _save_latent_space(self):
         grid_size = 6
@@ -123,13 +143,13 @@ class WGAN_GP:
             for j, v_j in enumerate(np.linspace(-1.5, 1.5, grid_size, True)):
                 latent_space_inputs[i * grid_size + j, :2] = [v_i, v_j]
 
-        generated_samples = self._generator.predict(latent_space_inputs)
+        generated_data = self._generator.predict(latent_space_inputs)
 
         filenames = [self._img_dir + '/latent_space.png']
-        utils.save_latent_space(generated_samples, grid_size, self._resolution, self._channels, filenames)
+        utils.save_latent_space(generated_data, grid_size, self._resolution, self._channels, filenames)
 
     def _save_losses(self):
-        utils.save_losses_wgan(self._losses, self._img_dir + '/losses.png')
+        utils.save_losses_wgan_gp_ae(self._losses, self._img_dir + '/losses.png', legend_name='generator VAE')
 
         with open(self._run_dir + '/losses.p', 'wb') as f:
             pickle.dump(self._losses, f)
@@ -137,9 +157,11 @@ class WGAN_GP:
     def _save_models(self):
         dir = self._model_dir + '/' + str(self._epoch) + '/'
         os.mkdir(dir)
-        self._generator_model.save(dir + 'generator_model.h5')
+        self._vae_model.save(dir + 'vae_model.h5')
         self._critic_model.save(dir + 'critic_model.h5')
         self._generator.save(dir + 'generator.h5')
+        self._encoder.save(dir + 'encoder.h5')
+        self._decoder_generator.save(dir + 'decoder_generator.h5')
         self._critic.save(dir + 'critic.h5')
 
     def _generate_dataset(self):
@@ -149,10 +171,10 @@ class WGAN_GP:
         np.save(self._generated_datesets_dir + '/last', generated_dataset)
 
     def get_models(self):
-        return self._generator, self._critic, self._generator_model, self._critic_model
+        return self._generator, self._critic, self._vae_model, self._critic_model
 
     def _apply_lr_decay(self):
-        lr_tensor = self._generator_model.optimizer.lr
+        lr_tensor = self._vae_model.optimizer.lr
         lr = K.get_value(lr_tensor)
         K.set_value(lr_tensor, lr * self._lr_decay_factor)
 

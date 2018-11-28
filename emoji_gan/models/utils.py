@@ -138,10 +138,10 @@ def save_latent_space_classes(generated_data, chosen_class, grid_size, resolutio
     plt.close()
 
 
-def generate_run_dir():
-    root_path = 'outputs'
+def generate_run_dir(model_type):
+    root_path = '../outputs/' + model_type
     if not os.path.exists(root_path):
-        os.mkdir(root_path)
+        os.makedirs(root_path)
 
     current_datetime = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
@@ -160,12 +160,12 @@ def generate_run_dir():
 
 def get_global_config():
     batch_size = 64
-    epochs = 1000000
+    epochs = 100000
     latent_dim = 10
-    img_frequency = 250
-    loss_frequency = 125
-    latent_space_frequency = 1000
-    model_save_frequency = 1000
+    img_frequency = 2500
+    loss_frequency = 1250
+    latent_space_frequency = 10000
+    model_save_frequency = 10000
     dataset_generation_frequency = 1000
     dataset_generation_size = 1000
 
