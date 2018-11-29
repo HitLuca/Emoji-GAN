@@ -12,8 +12,6 @@ models_dictionary = {
     'wgan_gp_vae': WGAN_GP_VAE
 }
 
-model_types = ['cwgan_gp', 'wgan_gp', 'wgan_gp_vae']
-
 
 def train(model_type):
     batch_size = 32
@@ -56,6 +54,6 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         model_type = sys.argv[1]
     else:
-        model_type = model_types[0]
+        model_type = 'vae'
     print(model_type)
     train(model_type)
