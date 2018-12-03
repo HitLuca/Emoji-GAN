@@ -24,11 +24,11 @@ class WGAN_GP_VAE:
         self._model_save_frequency = config['model_save_frequency']
         self._dataset_generation_frequency = config['dataset_generation_frequency']
         self._dataset_generation_size = config['dataset_generation_size']
-        self._gradient_penality_weight = config['gradient_penality_weight']
+        self._gradient_penalty_weight = config['gradient_penalty_weight']
         self._run_dir = config['run_dir']
         self._img_dir = config['img_dir']
         self._model_dir = config['model_dir']
-        self._generated_datesets_dir = config['generated_datesets_dir']
+        self._generated_datasets_dir = config['generated_datasets_dir']
         self._gamma = config['gamma']
 
         self._lr_decay_factor = config['lr_decay_factor']
@@ -56,7 +56,7 @@ class WGAN_GP_VAE:
                                                                   self._latent_dim,
                                                                   self._resolution,
                                                                   self._channels, self._batch_size, self._critic_lr,
-                                                                  self._gradient_penality_weight)
+                                                                  self._gradient_penalty_weight)
 
     def train(self, dataset, *_):
         ones = np.ones((self._batch_size, 1))
@@ -155,20 +155,20 @@ class WGAN_GP_VAE:
             pickle.dump(self._losses, f)
 
     def _save_models(self):
-        dir = self._model_dir + '/' + str(self._epoch) + '/'
-        os.mkdir(dir)
-        self._vae_model.save(dir + 'vae_model.h5')
-        self._critic_model.save(dir + 'critic_model.h5')
-        self._generator.save(dir + 'generator.h5')
-        self._encoder.save(dir + 'encoder.h5')
-        self._decoder_generator.save(dir + 'decoder_generator.h5')
-        self._critic.save(dir + 'critic.h5')
+        root_dir = self._model_dir + '/' + str(self._epoch) + '/'
+        os.mkdir(root_dir)
+        self._vae_model.save(root_dir + 'vae_model.h5')
+        self._critic_model.save(root_dir + 'critic_model.h5')
+        self._generator.save(root_dir + 'generator.h5')
+        self._encoder.save(root_dir + 'encoder.h5')
+        self._decoder_generator.save(root_dir + 'decoder_generator.h5')
+        self._critic.save(root_dir + 'critic.h5')
 
     def _generate_dataset(self):
         z_samples = np.random.normal(0, 1, (self._dataset_generation_size, self._latent_dim))
         generated_dataset = self._generator.predict(z_samples)
-        np.save(self._generated_datesets_dir + ('/%d_generated_data' % self._epoch), generated_dataset)
-        np.save(self._generated_datesets_dir + '/last', generated_dataset)
+        np.save(self._generated_datasets_dir + ('/%d_generated_data' % self._epoch), generated_dataset)
+        np.save(self._generated_datasets_dir + '/last', generated_dataset)
 
     def get_models(self):
         return self._generator, self._critic, self._vae_model, self._critic_model

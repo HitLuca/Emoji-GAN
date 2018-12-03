@@ -28,9 +28,7 @@ This project is intended to be self-contained, with the only exception being the
 Before starting, run the ```setup.py``` script, that will automatically download and parse the dataset, creating ready-to-use .npy files.
 
 ### Prerequisites
-Necessary libraries are indicated in the ```requirements.txt```, to install them run
-
-```pip install -r requirements.txt```
+To install the python environment for this project, refer to the [Pipenv setup guide](https://pipenv.readthedocs.io/en/latest/basics/)
 
 ### Training the models
 Just choose your model of choice and run the ```train_name_of_model.py``` script. Variables that can be changed are located in ```train_name_of_model.py``` and ```utils.py``` scripts.

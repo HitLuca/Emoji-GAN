@@ -19,7 +19,7 @@ def build_generator(latent_dim, classes_n, resolution, channels, filters=256, ke
 
     while image_size != resolution:
         generated = Conv2DTranspose(filters, kernel_size, strides=2, padding='same')(generated)
-        generated = utils.BatchNormalization()(generated)
+        generated = BatchNormalization()(generated)
         generated = LeakyReLU(0.2)(generated)
         image_size *= 2
         filters = int(filters / 2)
@@ -75,7 +75,7 @@ def build_generator_model(generator, critic, latent_dim, classes_n, generator_lr
 
 
 def build_critic_model(generator, critic, latent_dim, resolution, channels, classes_n, batch_size, critic_lr,
-                       gradient_penality_weight):
+                       gradient_penalty_weight):
     utils.set_model_trainable(generator, False)
     utils.set_model_trainable(critic, True)
 
@@ -93,7 +93,7 @@ def build_critic_model(generator, critic, latent_dim, resolution, channels, clas
 
     partial_gp_loss = partial(gradient_penalty_loss,
                               averaged_samples=averaged_samples,
-                              gradient_penalty_weight=gradient_penality_weight)
+                              gradient_penalty_weight=gradient_penalty_weight)
     partial_gp_loss.__name__ = 'gradient_penalty'
 
     critic_model = Model([real_samples, noise_samples, class_samples],

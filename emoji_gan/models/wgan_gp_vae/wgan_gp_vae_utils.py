@@ -17,7 +17,7 @@ def build_encoder(latent_dim, resolution, channels, filters=32, kernel_size=3):
 
     while image_size != 2:
         encoded = Conv2D(filters, kernel_size, strides=2, padding='same')(encoded)
-        encoded = utils.BatchNormalization()(encoded)
+        # encoded = BatchNormalization()(encoded)
         encoded = LeakyReLU(0.2)(encoded)
         image_size /= 2
         filters = filters * 2
@@ -42,7 +42,7 @@ def build_decoder(latent_dim, resolution, channels, filters=256, kernel_size=3):
 
     while image_size != resolution:
         decoded = Conv2DTranspose(filters, kernel_size, strides=2, padding='same')(decoded)
-        decoded = utils.BatchNormalization()(decoded)
+        # decoded = BatchNormalization()(decoded)
         decoded = LeakyReLU(0.2)(decoded)
         image_size *= 2
         filters = int(filters / 2)
@@ -109,6 +109,7 @@ def build_vae_model(encoder, decoder_generator, critic, latent_dim, resolution, 
 
 
 def vae_loss(z_mean, z_log_var, real_criticized, decoded_criticized):
+    # noinspection PyUnusedLocal
     def loss(y_true, y_pred):
         mse_loss = mean_squared_error(real_criticized, decoded_criticized)
         kl_loss = - 0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
@@ -118,7 +119,7 @@ def vae_loss(z_mean, z_log_var, real_criticized, decoded_criticized):
 
 
 def build_critic_model(encoder, decoder_generator, critic, latent_dim, resolution, channels, batch_size, critic_lr,
-                       gradient_penality_weight):
+                       gradient_penalty_weight):
     utils.set_model_trainable(encoder, False)
     utils.set_model_trainable(decoder_generator, False)
     utils.set_model_trainable(critic, True)
@@ -135,7 +136,7 @@ def build_critic_model(encoder, decoder_generator, critic, latent_dim, resolutio
 
     partial_gp_loss = partial(gradient_penalty_loss,
                               averaged_samples=averaged_samples,
-                              gradient_penalty_weight=gradient_penality_weight)
+                              gradient_penalty_weight=gradient_penalty_weight)
     partial_gp_loss.__name__ = 'gradient_penalty'
 
     critic_model = Model([real_samples, noise_samples],

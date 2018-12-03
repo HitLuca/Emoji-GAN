@@ -5,6 +5,7 @@ from keras.layers import *
 from models.cwgan_gp import cwgan_gp_utils
 from models import utils
 
+
 class CWGAN_GP:
     def __init__(self, config):
         self._classes_n = config['classes_n']
@@ -25,11 +26,11 @@ class CWGAN_GP:
         self._model_save_frequency = config['model_save_frequency']
         self._dataset_generation_frequency = config['dataset_generation_frequency']
         self._dataset_generation_size = config['dataset_generation_size']
-        self._gradient_penality_weight = config['gradient_penality_weight']
+        self._gradient_penalty_weight = config['gradient_penalty_weight']
         self._run_dir = config['run_dir']
         self._img_dir = config['img_dir']
         self._model_dir = config['model_dir']
-        self._generated_datesets_dir = config['generated_datesets_dir']
+        self._generated_datasets_dir = config['generated_datasets_dir']
 
         self._lr_decay_factor = config['lr_decay_factor']
         self._lr_decay_steps = config['lr_decay_steps']
@@ -47,7 +48,7 @@ class CWGAN_GP:
         self._critic_model = cwgan_gp_utils.build_critic_model(self._generator, self._critic, self._latent_dim,
                                                                self._resolution, self._channels, self._classes_n,
                                                                self._batch_size, self._critic_lr,
-                                                               self._gradient_penality_weight)
+                                                               self._gradient_penalty_weight)
 
     def train(self, dataset, classes):
         ones = np.ones((self._batch_size, 1))
@@ -150,12 +151,12 @@ class CWGAN_GP:
             pickle.dump(self._losses, f)
 
     def _save_models(self):
-        dir = self._model_dir + '/' + str(self._epoch) + '/'
-        os.mkdir(dir)
-        self._generator_model.save(dir + 'generator_model.h5')
-        self._critic_model.save(dir + 'critic_model.h5')
-        self._generator.save(dir + 'generator.h5')
-        self._critic.save(dir + 'critic.h5')
+        root_dir = self._model_dir + '/' + str(self._epoch) + '/'
+        os.mkdir(root_dir)
+        self._generator_model.save(root_dir + 'generator_model.h5')
+        self._critic_model.save(root_dir + 'critic_model.h5')
+        self._generator.save(root_dir + 'generator.h5')
+        self._critic.save(root_dir + 'critic.h5')
 
     def _generate_dataset(self):
         noise_samples = np.random.normal(0, 1, (self._dataset_generation_size, self._latent_dim))
@@ -163,10 +164,10 @@ class CWGAN_GP:
         classes_samples_onehot = np.eye(self._classes_n)[classes_samples]
 
         generated_dataset = self._generator.predict([noise_samples, classes_samples_onehot])
-        np.save(self._generated_datesets_dir + ('/%d_generated_data' % self._epoch), generated_dataset)
-        np.save(self._generated_datesets_dir + ('/%d_classes' % self._epoch), self._class_names[classes_samples])
-        np.save(self._generated_datesets_dir + '/last', generated_dataset)
-        np.save(self._generated_datesets_dir + '/last_classes', self._class_names[classes_samples])
+        np.save(self._generated_datasets_dir + ('/%d_generated_data' % self._epoch), generated_dataset)
+        np.save(self._generated_datasets_dir + ('/%d_classes' % self._epoch), self._class_names[classes_samples])
+        np.save(self._generated_datasets_dir + '/last', generated_dataset)
+        np.save(self._generated_datasets_dir + '/last_classes', self._class_names[classes_samples])
 
     def get_models(self):
         return self._generator, self._critic, self._generator_model, self._critic_model

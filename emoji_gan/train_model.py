@@ -18,6 +18,7 @@ def train(model_type):
     resolution = 16
     channels = 4
 
+    # noinspection PyUnusedLocal
     companies = np.load('../dataset/companies_names.npy')
     categories_names = np.load('../dataset/categories_names.npy')
 
@@ -29,7 +30,7 @@ def train(model_type):
     dataset = dataset[perm]
     classes = classes[perm]
 
-    run_dir, img_dir, model_dir, generated_datesets_dir = utils.generate_run_dir(model_type)
+    run_dir, img_dir, model_dir, generated_datasets_dir = utils.generate_run_dir(model_type)
 
     config_2 = {
         'batch_size': batch_size,
@@ -40,7 +41,7 @@ def train(model_type):
         'run_dir': run_dir,
         'img_dir': img_dir,
         'model_dir': model_dir,
-        'generated_datesets_dir': generated_datesets_dir,
+        'generated_datasets_dir': generated_datasets_dir,
     }
 
     config = utils.merge_config_and_save(config_2)
@@ -54,6 +55,6 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         model_type = sys.argv[1]
     else:
-        model_type = 'vae'
+        model_type = 'wgan_gp'
     print(model_type)
     train(model_type)
