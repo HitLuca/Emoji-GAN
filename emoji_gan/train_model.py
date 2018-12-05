@@ -16,7 +16,7 @@ models_dictionary = {
 def train(model_type):
     batch_size = 32
     resolution = 16
-    channels = 4
+    channels = 3
 
     # noinspection PyUnusedLocal
     companies = np.load('../dataset/companies_names.npy')
@@ -25,6 +25,14 @@ def train(model_type):
     dataset = np.load('../dataset/emojis_' + str(resolution) + '.npy')
     classes = np.load('../dataset/emojis_classes.npy')[:, 1]
     classes_n = categories_names.shape[0]
+
+    if channels == 1:
+        dataset = np.dot(dataset[:, :, :, :3], [0.299, 0.587, 0.114])
+    elif channels == 3:
+        dataset = (dataset + 1) / 2.0
+        alphas = dataset[:, :, :, -1:]
+        dataset = dataset[:, :, :, :-1] * alphas + np.ones(dataset.shape)[:, :, :, :-1] * (1-alphas)
+        dataset = (dataset * 2) - 1.0
 
     perm = np.random.permutation(dataset.shape[0])
     dataset = dataset[perm]
