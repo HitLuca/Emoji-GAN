@@ -9,6 +9,7 @@ verify_ssl = true
 keras = "==2.1.2"
 tensorflow-gpu = "==1.4.0"
 matplotlib = "*"
+imageio = "*"
 
 [requires]
 python_version = "3.6"

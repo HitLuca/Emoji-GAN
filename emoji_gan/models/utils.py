@@ -158,7 +158,7 @@ def generate_run_dir(model_type):
 def get_global_config():
     batch_size = 64
     epochs = 100000
-    latent_dim = 10
+    latent_dim = 100
     img_frequency = 250
     loss_frequency = 125
     latent_space_frequency = 1000

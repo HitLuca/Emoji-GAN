@@ -15,15 +15,12 @@ def build_encoder(latent_dim, resolution, channels, filters=32, kernel_size=3):
     encoder_inputs = Input((resolution, resolution, channels))
     encoded = encoder_inputs
 
-    while image_size != 2:
-        encoded = Conv2D(filters, kernel_size, strides=2, padding='same')(encoded)
-        # encoded = BatchNormalization()(encoded)
+    while image_size != 4:
+        encoded = Conv2D(filters, kernel_size, padding='same')(encoded)
         encoded = LeakyReLU(0.2)(encoded)
+        encoded = MaxPooling2D()(encoded)
         image_size /= 2
         filters = filters * 2
-
-    encoded = Conv2D(filters, kernel_size, padding='same')(encoded)
-    encoded = LeakyReLU(0.2)(encoded)
 
     encoded = Flatten()(encoded)
 
@@ -35,18 +32,24 @@ def build_encoder(latent_dim, resolution, channels, filters=32, kernel_size=3):
 
 
 def build_decoder(latent_dim, resolution, channels, filters=256, kernel_size=3):
-    image_size = 1
+    image_size = 4
 
     decoder_inputs = Input((latent_dim,))
-    decoded = Reshape((1, 1, latent_dim))(decoder_inputs)
+    decoded = decoder_inputs
 
-    while image_size != resolution:
-        decoded = Conv2DTranspose(filters, kernel_size, strides=2, padding='same')(decoded)
-        # decoded = BatchNormalization()(decoded)
+    decoded = Dense(image_size*image_size*32)(decoded)
+    decoded = LeakyReLU(0.2)(decoded)
+
+    decoded = Reshape((image_size, image_size, 32))(decoded)
+
+    while image_size != resolution/2:
+        decoded = UpSampling2D()(decoded)
+        decoded = Conv2D(filters, kernel_size, padding='same')(decoded)
         decoded = LeakyReLU(0.2)(decoded)
         image_size *= 2
         filters = int(filters / 2)
 
+    decoded = UpSampling2D()(decoded)
     decoded = Conv2D(channels, kernel_size, padding='same', activation='tanh')(decoded)
 
     decoder = Model(decoder_inputs, decoded, 'decoder')
@@ -59,19 +62,18 @@ def build_critic(resolution, channels, filters=32, kernel_size=3):
     critic_inputs = Input((resolution, resolution, channels))
     criticized = critic_inputs
 
-    while image_size != 2:
-        criticized = Conv2D(filters, kernel_size, strides=2, padding='same')(criticized)
+    while image_size != 4:
+        criticized = Conv2D(filters, kernel_size, padding='same')(criticized)
         criticized = LeakyReLU(0.2)(criticized)
+        criticized = MaxPooling2D()(criticized)
         image_size /= 2
         filters = filters * 2
 
-    criticized = Conv2D(filters, kernel_size, padding='same')(criticized)
-    criticized = LeakyReLU(0.2)(criticized)
-
     criticized = Flatten()(criticized)
 
-    criticized = Dense(50)(criticized)
+    criticized = Dense(128)(criticized)
     criticized = LeakyReLU(0.2)(criticized)
+
     criticized = Dense(1)(criticized)
 
     critic = Model(critic_inputs, criticized, 'critic')

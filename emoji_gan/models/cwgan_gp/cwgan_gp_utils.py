@@ -9,24 +9,30 @@ from .. import utils
 
 
 def build_generator(latent_dim, classes_n, resolution, channels, filters=256, kernel_size=3):
-    image_size = 1
+    image_size = 4
 
     latent_input = Input((latent_dim,))
     conditional_input = Input((classes_n,))
 
     generator_inputs = Concatenate()([latent_input, conditional_input])
-    generated = Reshape((1, 1, latent_dim + classes_n))(generator_inputs)
+    generated = generator_inputs
 
-    while image_size != resolution:
-        generated = Conv2DTranspose(filters, kernel_size, strides=2, padding='same')(generated)
-        generated = BatchNormalization()(generated)
+    generated = Dense(image_size*image_size*32)(generated)
+    generated = LeakyReLU(0.2)(generated)
+
+    generated = Reshape((image_size, image_size, 32))(generated)
+
+    while image_size != resolution/2:
+        generated = UpSampling2D()(generated)
+        generated = Conv2D(filters, kernel_size, padding='same')(generated)
         generated = LeakyReLU(0.2)(generated)
         image_size *= 2
         filters = int(filters / 2)
 
+    generated = UpSampling2D()(generated)
     generated = Conv2D(channels, kernel_size, padding='same', activation='tanh')(generated)
 
-    generator = Model([latent_input, conditional_input], generated, 'generator')
+    generator = Model([generator_inputs, conditional_input], generated, 'generator')
     return generator
 
 
@@ -36,24 +42,20 @@ def build_critic(resolution, channels, classes_n, filters=32, kernel_size=3):
     critic_inputs = Input((resolution, resolution, channels))
     criticized = critic_inputs
 
-    while image_size != 2:
-        criticized = Conv2D(filters, kernel_size, strides=2, padding='same')(criticized)
+    while image_size != 4:
+        criticized = Conv2D(filters, kernel_size, padding='same')(criticized)
         criticized = LeakyReLU(0.2)(criticized)
+        criticized = MaxPooling2D()(criticized)
         image_size /= 2
         filters = filters * 2
-
-    criticized = Conv2D(filters, kernel_size, padding='same')(criticized)
-    criticized = LeakyReLU(0.2)(criticized)
-
-    criticized = Flatten()(criticized)
 
     class_input = Input((classes_n,))
     criticized = Concatenate()([criticized, class_input])
 
-    criticized = Dense(50)(criticized)
+    criticized = Dense(128)(criticized)
     criticized = LeakyReLU(0.2)(criticized)
-    criticized = Dense(1)(criticized)
 
+    criticized = Dense(1)(criticized)
     critic = Model([critic_inputs, class_input], criticized, 'critic')
     return critic
 

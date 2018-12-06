@@ -8,7 +8,7 @@ from keras.optimizers import Adam
 from models import utils
 
 
-def build_generator(latent_dim, resolution, channels, filters=64, kernel_size=3):
+def build_generator(latent_dim, resolution, channels, filters=256, kernel_size=3):
     image_size = 4
 
     generator_inputs = Input((latent_dim,))
@@ -19,13 +19,14 @@ def build_generator(latent_dim, resolution, channels, filters=64, kernel_size=3)
 
     generated = Reshape((image_size, image_size, 32))(generated)
 
-    while image_size != resolution:
+    while image_size != resolution/2:
         generated = UpSampling2D()(generated)
         generated = Conv2D(filters, kernel_size, padding='same')(generated)
         generated = LeakyReLU(0.2)(generated)
         image_size *= 2
         filters = int(filters / 2)
 
+    generated = UpSampling2D()(generated)
     generated = Conv2D(channels, kernel_size, padding='same', activation='tanh')(generated)
 
     generator = Model(generator_inputs, generated, 'generator')
@@ -38,7 +39,7 @@ def build_critic(resolution, channels, filters=32, kernel_size=3):
     critic_inputs = Input((resolution, resolution, channels))
     criticized = critic_inputs
 
-    while image_size != 2:
+    while image_size != 4:
         criticized = Conv2D(filters, kernel_size, padding='same')(criticized)
         criticized = LeakyReLU(0.2)(criticized)
         criticized = MaxPooling2D()(criticized)
@@ -46,6 +47,10 @@ def build_critic(resolution, channels, filters=32, kernel_size=3):
         filters = filters * 2
 
     criticized = Flatten()(criticized)
+
+    criticized = Dense(128)(criticized)
+    criticized = LeakyReLU(0.2)(criticized)
+
     criticized = Dense(1)(criticized)
 
     critic = Model(critic_inputs, criticized, 'critic')
