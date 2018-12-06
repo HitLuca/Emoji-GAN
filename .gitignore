@@ -215,4 +215,5 @@ dataset/img/
 dataset/*.npy
 dataset/*.json
 **/outputs
-.idea/
+.idea/deployment.xml
+.idea/webServers.xml
