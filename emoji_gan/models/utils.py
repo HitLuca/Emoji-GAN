@@ -35,7 +35,10 @@ def save_samples(generated_data, rows, columns, resolution, channels, filenames)
     for i in range(rows):
         for j in range(columns):
             plt.subplot(rows, columns, k)
-            plt.imshow((generated_data[k - 1].reshape(resolution, resolution, channels) + 1.0) / 2.0)
+            if channels == 1:
+                plt.imshow((generated_data[k - 1].reshape(resolution, resolution) + 1.0) / 2.0, cmap='gray')
+            else:
+                plt.imshow((generated_data[k - 1].reshape(resolution, resolution, channels) + 1.0) / 2.0)
             plt.xticks([])
             plt.yticks([])
             k += 1
@@ -55,8 +58,11 @@ def save_samples_classes(generated_data, labels, rows, columns, resolution, chan
         for j in range(columns):
             plt.subplot(rows, columns, k)
             plt.title(labels[k - 1])
-            plt.imshow((generated_data[k - 1].reshape(resolution, resolution, channels) + 1.0) / 2.0)
-            plt.xticks([])
+            if channels == 1:
+                plt.imshow((generated_data[k - 1].reshape(resolution, resolution) + 1.0) / 2.0, cmap='gray')
+            else:
+                plt.imshow((generated_data[k - 1].reshape(resolution, resolution, channels) + 1.0) / 2.0)
+                plt.xticks([])
             plt.yticks([])
             k += 1
     plt.tight_layout()
@@ -108,7 +114,10 @@ def save_latent_space(generated_data, grid_size, resolution, channels, filenames
     for i in range(grid_size):
         for j in range(grid_size):
             plt.subplot(grid_size, grid_size, i * grid_size + j + 1)
-            plt.imshow((generated_data[i * grid_size + j].reshape(resolution, resolution, channels) + 1.0) / 2.0)
+            if channels == 1:
+                plt.imshow((generated_data[i * grid_size + j].reshape(resolution, resolution) + 1.0) / 2.0, cmap='gray')
+            else:
+                plt.imshow((generated_data[i * grid_size + j].reshape(resolution, resolution, channels) + 1.0) / 2.0)
             plt.xticks([])
             plt.yticks([])
     plt.tight_layout()
@@ -126,7 +135,10 @@ def save_latent_space_classes(generated_data, chosen_class, grid_size, resolutio
     for i in range(grid_size):
         for j in range(grid_size):
             plt.subplot(grid_size, grid_size, i * grid_size + j + 1)
-            plt.imshow((generated_data[i * grid_size + j].reshape(resolution, resolution, channels) + 1.0) / 2.0)
+            if channels == 1:
+                plt.imshow((generated_data[i * grid_size + j].reshape(resolution, resolution) + 1.0) / 2.0, cmap='gray')
+            else:
+                plt.imshow((generated_data[i * grid_size + j].reshape(resolution, resolution, channels) + 1.0) / 2.0)
             plt.xticks([])
             plt.yticks([])
     for filename in filenames:
@@ -159,11 +171,11 @@ def get_global_config():
     batch_size = 64
     epochs = 100000
     latent_dim = 100
-    img_frequency = 250
-    loss_frequency = 125
-    latent_space_frequency = 1000
-    model_save_frequency = 10000
-    dataset_generation_frequency = 1000
+    img_frequency = 5000
+    loss_frequency = 2500
+    latent_space_frequency = 25000
+    model_save_frequency = 100000
+    dataset_generation_frequency = 100000
     dataset_generation_size = 1000
 
     n_generator = 1
