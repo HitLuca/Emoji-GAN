@@ -9,7 +9,7 @@ from keras.optimizers import Adam
 from models import utils
 
 
-def build_encoder(latent_dim, resolution, channels, filters=32, kernel_size=3):
+def build_encoder(latent_dim, resolution, channels, filters=32, kernel_size=4):
     image_size = resolution
 
     encoder_inputs = Input((resolution, resolution, channels))
@@ -17,7 +17,8 @@ def build_encoder(latent_dim, resolution, channels, filters=32, kernel_size=3):
 
     while image_size != 4:
         encoded = Conv2D(filters, kernel_size, padding='same')(encoded)
-        encoded = LeakyReLU(0.2)(encoded)
+        encoded = BatchNormalization()(encoded)
+        encoded = LeakyReLU()(encoded)
         encoded = MaxPooling2D()(encoded)
         image_size /= 2
         filters = filters * 2
@@ -31,25 +32,26 @@ def build_encoder(latent_dim, resolution, channels, filters=32, kernel_size=3):
     return encoder
 
 
-def build_decoder(latent_dim, resolution, channels, filters=256, kernel_size=3):
+def build_decoder(latent_dim, resolution, channels, filters=128, kernel_size=4):
     image_size = 4
 
     decoder_inputs = Input((latent_dim,))
     decoded = decoder_inputs
 
     decoded = Dense(image_size*image_size*32)(decoded)
-    decoded = LeakyReLU(0.2)(decoded)
+    decoded = BatchNormalization()(decoded)
+    decoded = LeakyReLU()(decoded)
 
     decoded = Reshape((image_size, image_size, 32))(decoded)
 
-    while image_size != resolution/2:
+    while image_size != resolution:
         decoded = UpSampling2D()(decoded)
         decoded = Conv2D(filters, kernel_size, padding='same')(decoded)
-        decoded = LeakyReLU(0.2)(decoded)
+        decoded = BatchNormalization()(decoded)
+        decoded = LeakyReLU()(decoded)
         image_size *= 2
         filters = int(filters / 2)
 
-    decoded = UpSampling2D()(decoded)
     decoded = Conv2D(channels, kernel_size, padding='same', activation='tanh')(decoded)
 
     decoder = Model(decoder_inputs, decoded, 'decoder')
@@ -64,15 +66,12 @@ def build_critic(resolution, channels, filters=32, kernel_size=3):
 
     while image_size != 4:
         criticized = Conv2D(filters, kernel_size, padding='same')(criticized)
-        criticized = LeakyReLU(0.2)(criticized)
+        criticized = LeakyReLU()(criticized)
         criticized = MaxPooling2D()(criticized)
         image_size /= 2
         filters = filters * 2
 
     criticized = Flatten()(criticized)
-
-    criticized = Dense(128)(criticized)
-    criticized = LeakyReLU(0.2)(criticized)
 
     criticized = Dense(1)(criticized)
 
@@ -101,7 +100,7 @@ def build_vae_model(encoder, decoder_generator, critic, latent_dim, resolution, 
     decoded_criticized = critic(decoded_inputs)
 
     vae_model = Model([real_samples, noise_samples], [generated_criticized, generated_criticized])
-    vae_model.compile(optimizer=Adam(lr=vae_lr, beta_1=0, beta_2=0.9),
+    vae_model.compile(optimizer=Adam(lr=vae_lr, beta_1=0.5, beta_2=0.9),
                       loss=[utils.wasserstein_loss,
                             vae_loss(z_mean, z_log_var, real_criticized, decoded_criticized)],
                       loss_weights=[gamma, (1 - gamma)])
@@ -111,12 +110,10 @@ def build_vae_model(encoder, decoder_generator, critic, latent_dim, resolution, 
 
 
 def vae_loss(z_mean, z_log_var, real_criticized, decoded_criticized):
-    # noinspection PyUnusedLocal
     def loss(y_true, y_pred):
         mse_loss = mean_squared_error(real_criticized, decoded_criticized)
         kl_loss = - 0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
         return K.mean(mse_loss + kl_loss)
-
     return loss
 
 
@@ -144,9 +141,8 @@ def build_critic_model(encoder, decoder_generator, critic, latent_dim, resolutio
     critic_model = Model([real_samples, noise_samples],
                          [real_criticized, generated_criticized, averaged_criticized], 'critic_model')
 
-    critic_model.compile(optimizer=Adam(critic_lr, beta_1=0, beta_2=0.9),
-                         loss=[utils.wasserstein_loss, utils.wasserstein_loss, partial_gp_loss],
-                         loss_weights=[1 / 3, 1 / 3, 1 / 3])
+    critic_model.compile(optimizer=Adam(critic_lr, beta_1=0.5, beta_2=0.9),
+                         loss=[utils.wasserstein_loss, utils.wasserstein_loss, partial_gp_loss])
     return critic_model
 
 

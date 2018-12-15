@@ -169,11 +169,11 @@ def generate_run_dir(model_type):
 
 def get_global_config():
     batch_size = 64
-    epochs = 100000
+    epochs = 1000000
     latent_dim = 100
-    img_frequency = 5000
-    loss_frequency = 2500
-    latent_space_frequency = 25000
+    img_frequency = 2500
+    loss_frequency = 1250
+    latent_space_frequency = 10000
     model_save_frequency = 100000
     dataset_generation_frequency = 100000
     dataset_generation_size = 1000

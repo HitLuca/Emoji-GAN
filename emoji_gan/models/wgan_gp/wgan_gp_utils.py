@@ -8,32 +8,33 @@ from keras.optimizers import Adam
 from models import utils
 
 
-def build_generator(latent_dim, resolution, channels, filters=256, kernel_size=3):
+def build_generator(latent_dim, resolution, channels, filters=128, kernel_size=4):
     image_size = 4
 
     generator_inputs = Input((latent_dim,))
     generated = generator_inputs
 
     generated = Dense(image_size*image_size*32)(generated)
-    generated = LeakyReLU(0.2)(generated)
+    generated = BatchNormalization()(generated)
+    generated = LeakyReLU()(generated)
 
     generated = Reshape((image_size, image_size, 32))(generated)
 
-    while image_size != resolution/2:
+    while image_size != resolution:
         generated = UpSampling2D()(generated)
         generated = Conv2D(filters, kernel_size, padding='same')(generated)
-        generated = LeakyReLU(0.2)(generated)
+        generated = BatchNormalization()(generated)
+        generated = LeakyReLU()(generated)
         image_size *= 2
         filters = int(filters / 2)
 
-    generated = UpSampling2D()(generated)
     generated = Conv2D(channels, kernel_size, padding='same', activation='tanh')(generated)
 
     generator = Model(generator_inputs, generated, 'generator')
     return generator
 
 
-def build_critic(resolution, channels, filters=32, kernel_size=3):
+def build_critic(resolution, channels, filters=32, kernel_size=4):
     image_size = resolution
 
     critic_inputs = Input((resolution, resolution, channels))
@@ -41,15 +42,12 @@ def build_critic(resolution, channels, filters=32, kernel_size=3):
 
     while image_size != 4:
         criticized = Conv2D(filters, kernel_size, padding='same')(criticized)
-        criticized = LeakyReLU(0.2)(criticized)
+        criticized = LeakyReLU()(criticized)
         criticized = MaxPooling2D()(criticized)
         image_size /= 2
         filters = filters * 2
 
     criticized = Flatten()(criticized)
-
-    criticized = Dense(128)(criticized)
-    criticized = LeakyReLU(0.2)(criticized)
 
     criticized = Dense(1)(criticized)
 
@@ -68,7 +66,7 @@ def build_generator_model(generator, critic, latent_dim, generator_lr):
     generated_criticized = critic(generated_samples)
 
     generator_model = Model([noise_samples], generated_criticized, 'generator_model')
-    generator_model.compile(optimizer=Adam(generator_lr, beta_1=0, beta_2=0.9), loss=utils.wasserstein_loss)
+    generator_model.compile(optimizer=Adam(generator_lr, beta_1=0.5, beta_2=0.9), loss=utils.wasserstein_loss)
     return generator_model
 
 
@@ -95,9 +93,8 @@ def build_critic_model(generator, critic, latent_dim, resolution, channels, batc
     critic_model = Model([real_samples, noise_samples],
                          [real_criticized, generated_criticized, averaged_criticized], 'critic_model')
 
-    critic_model.compile(optimizer=Adam(critic_lr, beta_1=0, beta_2=0.9),
-                         loss=[utils.wasserstein_loss, utils.wasserstein_loss, partial_gp_loss],
-                         loss_weights=[1 / 3, 1 / 3, 1 / 3])
+    critic_model.compile(optimizer=Adam(critic_lr, beta_1=0.5, beta_2=0.9),
+                         loss=[utils.wasserstein_loss, utils.wasserstein_loss, partial_gp_loss])
     return critic_model
 
 
