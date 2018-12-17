@@ -37,6 +37,11 @@ class DS_WGAN_GP:
         self._losses = [[], []]
         self._build_models()
 
+        os.makedirs(self._img_dir + '/grayscale')
+        os.makedirs(self._img_dir + '/rgb')
+        os.makedirs(self._generated_datasets_dir + '/grayscale')
+        os.makedirs(self._generated_datasets_dir + '/rgb')
+
     def _build_models(self):
         self._generator = ds_wgan_gp_utils.build_generator(self._latent_dim, self._resolution)
 
@@ -113,10 +118,6 @@ class DS_WGAN_GP:
         noise = np.random.normal(0, 1, (rows * columns, self._latent_dim))
         generated_samples_grayscale, generated_samples_rgb = self._generator.predict(noise)
 
-        if not os.path.exists(self._img_dir + '/grayscale'):
-            os.makedirs(self._img_dir + '/grayscale')
-            os.makedirs(self._img_dir + '/rgb')
-
         filenames_grayscale = [self._img_dir + ('/grayscale/%07d.png' % self._epoch), self._img_dir + '/grayscale/last.png']
         filenames_rgb = [self._img_dir + ('/rgb/%07d.png' % self._epoch), self._img_dir + '/rgb/last.png']
         utils.save_samples(generated_samples_grayscale, rows, columns, self._resolution, 1, filenames_grayscale)
@@ -131,9 +132,12 @@ class DS_WGAN_GP:
             for j, v_j in enumerate(np.linspace(-1.5, 1.5, grid_size, True)):
                 latent_space_inputs[i * grid_size + j, :2] = [v_i, v_j]
 
-        _, generated_samples_rgb = self._generator.predict(latent_space_inputs)
+        generated_samples_grayscale, generated_samples_rgb = self._generator.predict(latent_space_inputs)
 
-        filenames = [self._img_dir + '/latent_space.png']
+        filenames = [self._img_dir + '/grayscale/latent_space.png', self._img_dir + ('/grayscale/%07d_latent_space.png' % self._epoch)]
+        utils.save_latent_space(generated_samples_grayscale, grid_size, self._resolution, 1, filenames)
+
+        filenames = [self._img_dir + '/rgb/latent_space.png', self._img_dir + ('/rgb/%07d_latent_space.png' % self._epoch)]
         utils.save_latent_space(generated_samples_rgb, grid_size, self._resolution, 3, filenames)
 
     def _save_losses(self):
@@ -144,7 +148,7 @@ class DS_WGAN_GP:
 
     def _save_models(self):
         root_dir = self._model_dir + '/' + str(self._epoch) + '/'
-        os.mkdir(root_dir)
+        os.makedirs(root_dir)
         self._generator_model.save(root_dir + 'generator_model.h5')
         self._critic_model.save(root_dir + 'critic_model.h5')
         self._generator.save(root_dir + 'generator.h5')
@@ -152,9 +156,9 @@ class DS_WGAN_GP:
 
     def _generate_dataset(self):
         z_samples = np.random.normal(0, 1, (self._dataset_generation_size, self._latent_dim))
-        generated_dataset = self._generator.predict(z_samples)
-        np.save(self._generated_datasets_dir + ('/%d_generated_data' % self._epoch), generated_dataset)
-        np.save(self._generated_datasets_dir + '/last', generated_dataset)
+        generated_dataset_grayscale, generated_dataset_rgb = self._generator.predict(z_samples)
+        np.save(self._generated_datasets_dir + ('/grayscale/%d_generated_data' % self._epoch), generated_dataset_grayscale)
+        np.save(self._generated_datasets_dir + ('/rgb/%d_generated_data' % self._epoch), generated_dataset_rgb)
 
     def get_models(self):
         return self._generator, self._critic, self._generator_model, self._critic_model

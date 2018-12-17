@@ -145,7 +145,7 @@ class WGAN_GP_VAE:
 
         generated_data = self._generator.predict(latent_space_inputs)
 
-        filenames = [self._img_dir + '/latent_space.png']
+        filenames = [self._img_dir + '/latent_space.png', self._img_dir + ('/%07d_latent_space.png' % self._epoch)]
         utils.save_latent_space(generated_data, grid_size, self._resolution, self._channels, filenames)
 
     def _save_losses(self):
@@ -168,16 +168,10 @@ class WGAN_GP_VAE:
         z_samples = np.random.normal(0, 1, (self._dataset_generation_size, self._latent_dim))
         generated_dataset = self._generator.predict(z_samples)
         np.save(self._generated_datasets_dir + ('/%d_generated_data' % self._epoch), generated_dataset)
-        np.save(self._generated_datasets_dir + '/last', generated_dataset)
 
     def get_models(self):
         return self._generator, self._critic, self._vae_model, self._critic_model
 
     def _apply_lr_decay(self):
-        lr_tensor = self._vae_model.optimizer.lr
-        lr = K.get_value(lr_tensor)
-        K.set_value(lr_tensor, lr * self._lr_decay_factor)
-
-        lr_tensor = self._critic_model.optimizer.lr
-        lr = K.get_value(lr_tensor)
-        K.set_value(lr_tensor, lr * self._lr_decay_factor)
+        models = [self._vae_model, self._critic_model]
+        utils.apply_lr_decay(models, self._lr_decay_factor)

@@ -4,6 +4,7 @@ from datetime import datetime
 
 import keras.backend as K
 import numpy as np
+# uncomment to use on machines that don't support standard matplotlib backend
 # import matplotlib
 # matplotlib.use('Agg')
 from matplotlib import pyplot as plt
@@ -188,8 +189,11 @@ def get_global_config():
     lr_decay_factor = 0.5
     lr_decay_steps = epochs / 4
 
+    epoch = 0
+
     config = {
         'batch_size': batch_size,
+        'epoch': epoch,
         'epochs': epochs,
         'latent_dim': latent_dim,
         'img_frequency': img_frequency,
@@ -215,11 +219,26 @@ def merge_config_and_save(config_2):
     config = get_global_config()
     config.update(config_2)
 
-    with open(config['run_dir'] + '/config.json', 'w') as f:
+    with open(str(config['run_dir']) + '/config.json', 'w') as f:
         json.dump(config, f, indent=4, sort_keys=True)
 
     return config
 
 
+def update_config_epoch(config_filepath, new_epoch):
+    config = json.load(open(config_filepath, 'r'))
+
+    config['epoch'] = new_epoch
+    with open(config_filepath, 'w') as f:
+        json.dump(config, f, indent=4, sort_keys=True)
+
+
 def wasserstein_loss(y_true, y_pred):
     return K.mean(y_true * y_pred)
+
+
+def apply_lr_decay(models, lr_decay_factor):
+    for model in models:
+        lr_tensor = model.optimizer.lr
+        lr = K.get_value(lr_tensor)
+        K.set_value(lr_tensor, lr * lr_decay_factor)

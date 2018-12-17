@@ -17,7 +17,7 @@ def build_encoder(latent_dim, resolution, channels, filters=32, kernel_size=4):
 
     while image_size != 4:
         encoded = Conv2D(filters, kernel_size, padding='same')(encoded)
-        encoded = BatchNormalization()(encoded)
+        # encoded = BatchNormalization()(encoded)
         encoded = LeakyReLU()(encoded)
         encoded = MaxPooling2D()(encoded)
         image_size /= 2
@@ -39,7 +39,7 @@ def build_decoder(latent_dim, resolution, channels, filters=128, kernel_size=4):
     decoded = decoder_inputs
 
     decoded = Dense(image_size*image_size*32)(decoded)
-    decoded = BatchNormalization()(decoded)
+    # decoded = BatchNormalization()(decoded)
     decoded = LeakyReLU()(decoded)
 
     decoded = Reshape((image_size, image_size, 32))(decoded)
@@ -47,7 +47,7 @@ def build_decoder(latent_dim, resolution, channels, filters=128, kernel_size=4):
     while image_size != resolution:
         decoded = UpSampling2D()(decoded)
         decoded = Conv2D(filters, kernel_size, padding='same')(decoded)
-        decoded = BatchNormalization()(decoded)
+        # decoded = BatchNormalization()(decoded)
         decoded = LeakyReLU()(decoded)
         image_size *= 2
         filters = int(filters / 2)
