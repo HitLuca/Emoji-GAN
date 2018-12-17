@@ -17,7 +17,7 @@ def build_generator(latent_dim, classes_n, resolution, channels, filters=128, ke
     generated = Concatenate()([latent_input, conditional_input])
 
     generated = Dense(image_size*image_size*32)(generated)
-    generated = BatchNormalization()(generated)
+    # generated = BatchNormalization()(generated)
     generated = LeakyReLU()(generated)
 
     generated = Reshape((image_size, image_size, 32))(generated)
@@ -25,7 +25,7 @@ def build_generator(latent_dim, classes_n, resolution, channels, filters=128, ke
     while image_size != resolution:
         generated = UpSampling2D()(generated)
         generated = Conv2D(filters, kernel_size, padding='same')(generated)
-        generated = BatchNormalization()(generated)
+        # generated = BatchNormalization()(generated)
         generated = LeakyReLU()(generated)
         image_size *= 2
         filters = int(filters / 2)

@@ -140,7 +140,7 @@ class CWGAN_GP:
 
         generated_samples = self._generator.predict([latent_space_inputs, chosen_class])
 
-        filenames = [self._img_dir + '/latent_space.png']
+        filenames = [self._img_dir + '/latent_space.png', self._img_dir + ('/%07d_latent_space.png' % self._epoch)]
         utils.save_latent_space_classes(generated_samples, self._class_names[random_class[0]], grid_size,
                                         self._resolution, self._channels, filenames)
 
@@ -166,17 +166,11 @@ class CWGAN_GP:
         generated_dataset = self._generator.predict([noise_samples, classes_samples_onehot])
         np.save(self._generated_datasets_dir + ('/%d_generated_data' % self._epoch), generated_dataset)
         np.save(self._generated_datasets_dir + ('/%d_classes' % self._epoch), self._class_names[classes_samples])
-        np.save(self._generated_datasets_dir + '/last', generated_dataset)
         np.save(self._generated_datasets_dir + '/last_classes', self._class_names[classes_samples])
 
     def get_models(self):
         return self._generator, self._critic, self._generator_model, self._critic_model
 
     def _apply_lr_decay(self):
-        lr_tensor = self._generator_model.optimizer.lr
-        lr = K.get_value(lr_tensor)
-        K.set_value(lr_tensor, lr * self._lr_decay_factor)
-
-        lr_tensor = self._critic_model.optimizer.lr
-        lr = K.get_value(lr_tensor)
-        K.set_value(lr_tensor, lr * self._lr_decay_factor)
+        models = [self._generator_model, self._critic_model]
+        utils.apply_lr_decay(models, self._lr_decay_factor)
