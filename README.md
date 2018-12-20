@@ -1,5 +1,6 @@
 # Emoji-GAN
 [![Build Status](https://travis-ci.org/HitLuca/Emoji-GAN.svg?branch=CI-test)](https://travis-ci.org/HitLuca/Emoji-GAN)
+[![Coverage Status](https://coveralls.io/repos/github/HitLuca/Emoji-GAN/badge.svg?branch=CI-test)](https://coveralls.io/github/HitLuca/Emoji-GAN?branch=CI-test)
 
 ## Description
 Generative Adversarial Network models tasked with generating realistic emojis sourced from popular companies (Google, Facebook etc.).
