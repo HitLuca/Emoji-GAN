@@ -1,4 +1,5 @@
 # Emoji-GAN
+[![Build Status](https://travis-ci.org/HitLuca/Emoji-GAN.svg?branch=CI-test)](https://travis-ci.org/HitLuca/Emoji-GAN)
 
 ## Description
 Generative Adversarial Network models tasked with generating realistic emojis sourced from popular companies (Google, Facebook etc.).

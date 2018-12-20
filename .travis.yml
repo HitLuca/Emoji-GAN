@@ -7,4 +7,6 @@ install:
   - pipenv install
 # command to run tests
 script:
-  - pytest
+  - pytest --cov=.
+after_success:
+  - coveralls
