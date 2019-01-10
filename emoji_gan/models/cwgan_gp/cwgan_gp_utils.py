@@ -32,7 +32,7 @@ def build_generator(latent_dim, classes_n, resolution, channels, filters=128, ke
 
     generated = Conv2D(channels, kernel_size, padding='same', activation='tanh')(generated)
 
-    generator = Model([latent_input, conditional_input], generated, 'generator')
+    generator = Model([latent_input, conditional_input], generated, name='generator')
     return generator
 
 
@@ -56,7 +56,7 @@ def build_critic(resolution, channels, classes_n, filters=32, kernel_size=4):
 
     criticized = Dense(1)(criticized)
 
-    critic = Model([critic_inputs, class_input], criticized, 'critic')
+    critic = Model([critic_inputs, class_input], criticized, name='critic')
     return critic
 
 
@@ -71,7 +71,7 @@ def build_generator_model(generator, critic, latent_dim, classes_n, generator_lr
 
     generated_criticized = critic([generated_samples, class_samples])
 
-    generator_model = Model([noise_samples, class_samples], generated_criticized, 'generator_model')
+    generator_model = Model([noise_samples, class_samples], generated_criticized, name='generator_model')
     generator_model.compile(optimizer=Adam(generator_lr, beta_1=0.5, beta_2=0.9), loss=utils.wasserstein_loss)
     return generator_model
 
@@ -99,7 +99,7 @@ def build_critic_model(generator, critic, latent_dim, resolution, channels, clas
     partial_gp_loss.__name__ = 'gradient_penalty'
 
     critic_model = Model([real_samples, noise_samples, class_samples],
-                         [real_criticized, generated_criticized, averaged_criticized], 'critic_model')
+                         [real_criticized, generated_criticized, averaged_criticized], name='critic_model')
 
     critic_model.compile(optimizer=Adam(critic_lr, beta_1=0.5, beta_2=0.9),
                          loss=[utils.wasserstein_loss, utils.wasserstein_loss, partial_gp_loss])

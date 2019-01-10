@@ -1,7 +1,7 @@
 import os
 import pickle
 
-from keras.layers import *
+import numpy as np
 from models.cwgan_gp import cwgan_gp_utils
 from models import utils
 

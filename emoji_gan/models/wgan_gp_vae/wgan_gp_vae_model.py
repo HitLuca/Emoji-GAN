@@ -1,8 +1,8 @@
 import os
 import pickle
 
-from keras.layers import *
 from models import utils
+import numpy as np
 
 from models.wgan_gp_vae import wgan_gp_vae_utils
 

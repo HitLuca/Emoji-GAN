@@ -1,7 +1,9 @@
 from functools import partial
 
-from keras import Model
-from keras.layers import *
+from keras import Model, Input
+from keras.layers import Dense, LeakyReLU, Reshape, UpSampling2D, Conv2D, MaxPooling2D, Flatten, Lambda
+import numpy as np
+import keras.backend as K
 from keras.layers.merge import _Merge
 from keras.losses import mean_squared_error
 from keras.optimizers import Adam
@@ -28,7 +30,7 @@ def build_encoder(latent_dim, resolution, channels, filters=32, kernel_size=4):
     z_mean = Dense(latent_dim)(encoded)
     z_log_var = Dense(latent_dim)(encoded)
 
-    encoder = Model(encoder_inputs, [z_mean, z_log_var])
+    encoder = Model(encoder_inputs, [z_mean, z_log_var], name='encoder')
     return encoder
 
 
@@ -54,7 +56,7 @@ def build_decoder(latent_dim, resolution, channels, filters=128, kernel_size=4):
 
     decoded = Conv2D(channels, kernel_size, padding='same', activation='tanh')(decoded)
 
-    decoder = Model(decoder_inputs, decoded, 'decoder')
+    decoder = Model(decoder_inputs, decoded, name='decoder')
     return decoder
 
 
@@ -75,7 +77,7 @@ def build_critic(resolution, channels, filters=32, kernel_size=3):
 
     criticized = Dense(1)(criticized)
 
-    critic = Model(critic_inputs, criticized, 'critic')
+    critic = Model(critic_inputs, criticized, name='critic')
 
     return critic
 
@@ -105,7 +107,7 @@ def build_vae_model(encoder, decoder_generator, critic, latent_dim, resolution, 
                             vae_loss(z_mean, z_log_var, real_criticized, decoded_criticized)],
                       loss_weights=[gamma, (1 - gamma)])
 
-    generator_model = Model(noise_samples, generated_samples)
+    generator_model = Model(noise_samples, generated_samples, name='generator_model')
     return vae_model, generator_model
 
 
@@ -139,7 +141,7 @@ def build_critic_model(encoder, decoder_generator, critic, latent_dim, resolutio
     partial_gp_loss.__name__ = 'gradient_penalty'
 
     critic_model = Model([real_samples, noise_samples],
-                         [real_criticized, generated_criticized, averaged_criticized], 'critic_model')
+                         [real_criticized, generated_criticized, averaged_criticized], name='critic_model')
 
     critic_model.compile(optimizer=Adam(critic_lr, beta_1=0.5, beta_2=0.9),
                          loss=[utils.wasserstein_loss, utils.wasserstein_loss, partial_gp_loss])

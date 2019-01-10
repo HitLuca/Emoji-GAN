@@ -1,10 +1,11 @@
 from functools import partial
 
-from keras import Model
-from keras.layers import *
+from keras import Model, Input
+from keras.layers import Dense, LeakyReLU, Reshape, UpSampling2D, Conv2D, MaxPooling2D, Flatten
 from keras.layers.merge import _Merge
 from keras.optimizers import Adam
-
+import keras.backend as K
+import numpy as np
 from models import utils
 
 
@@ -30,7 +31,7 @@ def build_generator(latent_dim, resolution, channels, filters=128, kernel_size=4
 
     generated = Conv2D(channels, kernel_size, padding='same', activation='tanh')(generated)
 
-    generator = Model(generator_inputs, generated, 'generator')
+    generator = Model(generator_inputs, generated, name='generator')
     return generator
 
 
@@ -51,7 +52,7 @@ def build_critic(resolution, channels, filters=32, kernel_size=4):
 
     criticized = Dense(1)(criticized)
 
-    critic = Model(critic_inputs, criticized, 'critic')
+    critic = Model(critic_inputs, criticized, name='critic')
 
     return critic
 
@@ -65,7 +66,7 @@ def build_generator_model(generator, critic, latent_dim, generator_lr):
 
     generated_criticized = critic(generated_samples)
 
-    generator_model = Model([noise_samples], generated_criticized, 'generator_model')
+    generator_model = Model([noise_samples], generated_criticized, name='generator_model')
     generator_model.compile(optimizer=Adam(generator_lr, beta_1=0.5, beta_2=0.9), loss=utils.wasserstein_loss)
     return generator_model
 
@@ -91,7 +92,7 @@ def build_critic_model(generator, critic, latent_dim, resolution, channels, batc
     partial_gp_loss.__name__ = 'gradient_penalty'
 
     critic_model = Model([real_samples, noise_samples],
-                         [real_criticized, generated_criticized, averaged_criticized], 'critic_model')
+                         [real_criticized, generated_criticized, averaged_criticized], name='critic_model')
 
     critic_model.compile(optimizer=Adam(critic_lr, beta_1=0.5, beta_2=0.9),
                          loss=[utils.wasserstein_loss, utils.wasserstein_loss, partial_gp_loss])

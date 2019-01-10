@@ -1,9 +1,9 @@
 import os
 import pickle
 
-from keras.layers import *
 from models.wgan_gp import wgan_gp_utils
 from models import utils
+import numpy as np
 
 
 class WGAN_GP:
@@ -13,6 +13,7 @@ class WGAN_GP:
         self._epochs = config['epochs']
         self._resolution = config['resolution']
         self._n_critic = config['n_critic']
+
         self._n_generator = config['n_generator']
         self._latent_dim = config['latent_dim']
 

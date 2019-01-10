@@ -42,7 +42,7 @@ def build_generator(latent_dim, resolution, filters=128, kernel_size=4):
 
     generated_rgb = Conv2D(3, kernel_size, padding='same', activation='tanh')(generated)
 
-    generator = Model(generator_inputs, [generated_grayscale, generated_rgb], 'generator')
+    generator = Model(generator_inputs, [generated_grayscale, generated_rgb], name='generator')
     return generator
 
 
@@ -65,7 +65,7 @@ def build_critic(resolution, filters=32, kernel_size=4):
 
     criticized = Dense(1)(criticized)
 
-    critic = Model([critic_inputs_grayscale, critic_inputs_rgb], criticized, 'critic')
+    critic = Model([critic_inputs_grayscale, critic_inputs_rgb], criticized, name='critic')
 
     return critic
 
@@ -79,7 +79,7 @@ def build_generator_model(generator, critic, latent_dim, generator_lr):
 
     generated_criticized = critic([generated_samples_grayscale, generated_samples_rgb])
 
-    generator_model = Model(noise_samples, generated_criticized, 'generator_model')
+    generator_model = Model(noise_samples, generated_criticized, name='generator_model')
     generator_model.compile(optimizer=Adam(generator_lr, beta_1=0.5, beta_2=0.9), loss=[utils.wasserstein_loss])
     return generator_model
 
@@ -109,7 +109,8 @@ def build_critic_model(generator, critic, latent_dim, resolution, batch_size, cr
     partial_gp_loss.__name__ = 'gradient_penalty'
 
     critic_model = Model([real_samples_grayscale, real_samples_rgb, noise_samples],
-                         [real_samples_criticized, generated_samples_criticized, averaged_samples_criticized], 'critic_model')
+                         [real_samples_criticized, generated_samples_criticized, averaged_samples_criticized],
+                         name='critic_model')
 
     critic_model.compile(optimizer=Adam(critic_lr, beta_1=0.5, beta_2=0.9),
                          loss=[utils.wasserstein_loss, utils.wasserstein_loss, partial_gp_loss])
