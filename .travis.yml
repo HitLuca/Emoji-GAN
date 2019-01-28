@@ -7,10 +7,10 @@ install:
   - pipenv install
   - pipenv install pytest --skip-lock
   - pipenv install pytest-cov --skip-lock
-  - pipenv install coveralls --skip-lock
+  - pipenv install codecov --skip-lock
 
 # command to run tests
 script:
-  - pytest --cov=.
+  - pytest --cov=./
 after_success:
-  - coveralls
+  - codecov
