@@ -5,6 +5,10 @@ python:
 install:
   - pip install pipenv
   - pipenv install
+  - pipenv install pytest --skip-lock
+  - pipenv install pytest-cov --skip-lock
+  - pipenv install coveralls --skip-lock
+
 # command to run tests
 script:
   - pytest --cov=.
