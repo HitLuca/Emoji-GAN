@@ -11,6 +11,9 @@ tensorflow-gpu = "==1.4.0"
 matplotlib = "*"
 imageio = "*"
 h5py = "*"
+pytest = "*"
+pytest-cov = "*"
+coveralls = "*"
 
 [requires]
 python_version = "3.6"
