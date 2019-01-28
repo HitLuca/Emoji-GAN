@@ -3,8 +3,6 @@
 [![Coverage Status](https://coveralls.io/repos/github/HitLuca/Emoji-GAN/badge.svg?branch=CI-test)](https://coveralls.io/github/HitLuca/Emoji-GAN?branch=CI-test)
 [![License MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![HitCount](http://hits.dwyl.io/HitLuca/Emoji-GAN.svg)](http://hits.dwyl.io/HitLuca/Emoji-GAN)
-
-
 [![Total alerts](https://img.shields.io/lgtm/alerts/g/HitLuca/Emoji-GAN.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/HitLuca/Emoji-GAN/alerts/)
 [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/HitLuca/Emoji-GAN.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/HitLuca/Emoji-GAN/context:python)
 
