@@ -4,16 +4,17 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
-
-[packages]
-keras = "==2.1.3"
 tensorflow-gpu = "==1.4.0"
-matplotlib = "*"
-imageio = "*"
-h5py = "*"
 pytest = "*"
 pytest-cov = "*"
 coveralls = "*"
+
+[packages]
+keras = "==2.1.3"
+tensorflow = "*"
+matplotlib = "*"
+imageio = "*"
+h5py = "*"
 pyyaml = "==4.2b4"
 
 [requires]
