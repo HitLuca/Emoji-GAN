@@ -1,5 +1,9 @@
 # Emoji-GAN
 
+
+[![Total alerts](https://img.shields.io/lgtm/alerts/g/HitLuca/Emoji-GAN.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/HitLuca/Emoji-GAN/alerts/)
+[![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/HitLuca/Emoji-GAN.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/HitLuca/Emoji-GAN/context:python)
+
 ## Description
 Generative Adversarial Network models tasked with generating realistic emojis sourced from popular companies (Google, Facebook etc.).
 

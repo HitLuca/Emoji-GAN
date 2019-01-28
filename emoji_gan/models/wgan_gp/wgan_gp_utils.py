@@ -1,7 +1,5 @@
-from functools import partial
-
 from keras import Model, Input
-from keras.layers import Dense, LeakyReLU, Reshape, UpSampling2D, Conv2D, MaxPooling2D, Flatten
+from keras.layers import Dense, LeakyReLU, Reshape, UpSampling2D, Conv2D, MaxPooling2D, Flatten, Conv2DTranspose, Add
 from keras.layers.merge import _Merge
 from keras.optimizers import Adam
 import keras.backend as K
@@ -9,23 +7,28 @@ import numpy as np
 from models import utils
 
 
-def build_generator(latent_dim, resolution, channels, filters=128, kernel_size=4):
+def build_generator(latent_dim, resolution, channels, filters=128, kernel_size=3):
     image_size = 4
 
     generator_inputs = Input((latent_dim,))
     generated = generator_inputs
 
     generated = Dense(image_size*image_size*32)(generated)
-    # generated = BatchNormalization()(generated)
-    generated = LeakyReLU()(generated)
+    generated = LeakyReLU(0.2)(generated)
 
     generated = Reshape((image_size, image_size, 32))(generated)
 
     while image_size != resolution:
+        shortcut = generated
+        shortcut = Conv2DTranspose(filters, 1, strides=2, padding='same')(shortcut)
+
         generated = UpSampling2D()(generated)
         generated = Conv2D(filters, kernel_size, padding='same')(generated)
-        # generated = BatchNormalization()(generated)
-        generated = LeakyReLU()(generated)
+        # generated = LeakyReLU(0.2)(generated)
+
+        generated = Add()([shortcut, generated])
+        generated = LeakyReLU(0.2)(generated)
+
         image_size *= 2
         filters = int(filters / 2)
 
@@ -35,16 +38,23 @@ def build_generator(latent_dim, resolution, channels, filters=128, kernel_size=4
     return generator
 
 
-def build_critic(resolution, channels, filters=32, kernel_size=4):
+def build_critic(resolution, channels, filters=32, kernel_size=3):
     image_size = resolution
 
     critic_inputs = Input((resolution, resolution, channels))
     criticized = critic_inputs
 
     while image_size != 4:
+        shortcut = criticized
+        shortcut = Conv2D(filters, 1, strides=2, padding='same')(shortcut)
+
         criticized = Conv2D(filters, kernel_size, padding='same')(criticized)
-        criticized = LeakyReLU()(criticized)
+        # criticized = LeakyReLU(0.2)(criticized)
         criticized = MaxPooling2D()(criticized)
+
+        criticized = Add()([shortcut, criticized])
+        criticized = LeakyReLU(0.2)(criticized)
+
         image_size /= 2
         filters = filters * 2
 
@@ -86,34 +96,38 @@ def build_critic_model(generator, critic, latent_dim, resolution, channels, batc
     averaged_samples = RandomWeightedAverage(batch_size)([real_samples, generated_samples])
     averaged_criticized = critic(averaged_samples)
 
-    partial_gp_loss = partial(gradient_penalty_loss,
-                              averaged_samples=averaged_samples,
-                              gradient_penalty_weight=gradient_penalty_weight)
-    partial_gp_loss.__name__ = 'gradient_penalty'
-
     critic_model = Model([real_samples, noise_samples],
                          [real_criticized, generated_criticized, averaged_criticized], name='critic_model')
 
     critic_model.compile(optimizer=Adam(critic_lr, beta_1=0.5, beta_2=0.9),
-                         loss=[utils.wasserstein_loss, utils.wasserstein_loss, partial_gp_loss])
+                         loss=[utils.wasserstein_loss, utils.wasserstein_loss,
+                               gradient_penalty_loss(gradient_penalty_weight, averaged_samples)])
     return critic_model
 
 
-def gradient_penalty_loss(_, y_pred, averaged_samples, gradient_penalty_weight):
-    gradients = K.gradients(y_pred, averaged_samples)[0]
-    gradients_sqr = K.square(gradients)
-    gradients_sqr_sum = K.sum(gradients_sqr, axis=np.arange(1, len(gradients_sqr.shape)))
-    gradient_l2_norm = K.sqrt(gradients_sqr_sum)
-    gradient_penalty = gradient_penalty_weight * K.square(1 - gradient_l2_norm)
-    return K.mean(gradient_penalty)
+def gradient_penalty_loss(gradient_penalty_weight, averaged_samples):
+    def loss_function(_, y_pred):
+        gradients = K.gradients(y_pred, averaged_samples)[0]
+        gradients_sqr = K.square(gradients)
+        gradients_sqr_sum = K.sum(gradients_sqr, axis=np.arange(1, len(gradients_sqr.shape)))
+        gradient_l2_norm = K.sqrt(gradients_sqr_sum)
+        gradient_penalty = gradient_penalty_weight * K.square(1 - gradient_l2_norm)
+        loss = K.mean(gradient_penalty)
+        return loss
+    return loss_function
 
 
 class RandomWeightedAverage(_Merge):
     def __init__(self, batch_size, **kwargs):
-        super().__init__(**kwargs)
         self._batch_size = batch_size
+        super(RandomWeightedAverage, self).__init__(**kwargs)
 
     def _merge_function(self, inputs):
         weights = K.random_uniform((self._batch_size, 1, 1, 1))
         averaged_inputs = (weights * inputs[0]) + ((1 - weights) * inputs[1])
         return averaged_inputs
+
+    def get_config(self):
+        config = {'batch_size': self._batch_size}
+        base_config = super(RandomWeightedAverage, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))

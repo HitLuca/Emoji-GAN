@@ -1,7 +1,8 @@
 from functools import partial
 
 from keras import Model, Input
-from keras.layers import Dense, LeakyReLU, Reshape, UpSampling2D, Conv2D, MaxPooling2D, Flatten, Lambda
+from keras.layers import Dense, LeakyReLU, Reshape, UpSampling2D, Conv2D, MaxPooling2D, Flatten, Lambda, \
+    BatchNormalization
 import numpy as np
 import keras.backend as K
 from keras.layers.merge import _Merge
@@ -11,7 +12,7 @@ from keras.optimizers import Adam
 from models import utils
 
 
-def build_encoder(latent_dim, resolution, channels, filters=32, kernel_size=4):
+def build_encoder(latent_dim, resolution, channels, filters=32, kernel_size=3):
     image_size = resolution
 
     encoder_inputs = Input((resolution, resolution, channels))
@@ -19,8 +20,8 @@ def build_encoder(latent_dim, resolution, channels, filters=32, kernel_size=4):
 
     while image_size != 4:
         encoded = Conv2D(filters, kernel_size, padding='same')(encoded)
-        # encoded = BatchNormalization()(encoded)
-        encoded = LeakyReLU()(encoded)
+        encoded = BatchNormalization()(encoded)
+        encoded = LeakyReLU(0.2)(encoded)
         encoded = MaxPooling2D()(encoded)
         image_size /= 2
         filters = filters * 2
@@ -34,23 +35,23 @@ def build_encoder(latent_dim, resolution, channels, filters=32, kernel_size=4):
     return encoder
 
 
-def build_decoder(latent_dim, resolution, channels, filters=128, kernel_size=4):
+def build_decoder(latent_dim, resolution, channels, filters=128, kernel_size=3):
     image_size = 4
 
     decoder_inputs = Input((latent_dim,))
     decoded = decoder_inputs
 
     decoded = Dense(image_size*image_size*32)(decoded)
-    # decoded = BatchNormalization()(decoded)
-    decoded = LeakyReLU()(decoded)
+    decoded = BatchNormalization()(decoded)
+    decoded = LeakyReLU(0.2)(decoded)
 
     decoded = Reshape((image_size, image_size, 32))(decoded)
 
     while image_size != resolution:
         decoded = UpSampling2D()(decoded)
         decoded = Conv2D(filters, kernel_size, padding='same')(decoded)
-        # decoded = BatchNormalization()(decoded)
-        decoded = LeakyReLU()(decoded)
+        decoded = BatchNormalization()(decoded)
+        decoded = LeakyReLU(0.2)(decoded)
         image_size *= 2
         filters = int(filters / 2)
 
@@ -68,7 +69,7 @@ def build_critic(resolution, channels, filters=32, kernel_size=3):
 
     while image_size != 4:
         criticized = Conv2D(filters, kernel_size, padding='same')(criticized)
-        criticized = LeakyReLU()(criticized)
+        criticized = LeakyReLU(0.2)(criticized)
         criticized = MaxPooling2D()(criticized)
         image_size /= 2
         filters = filters * 2

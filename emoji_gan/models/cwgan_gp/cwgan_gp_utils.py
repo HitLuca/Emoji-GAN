@@ -8,7 +8,7 @@ from keras.optimizers import Adam
 from .. import utils
 
 
-def build_generator(latent_dim, classes_n, resolution, channels, filters=128, kernel_size=4):
+def build_generator(latent_dim, classes_n, resolution, channels, filters=128, kernel_size=3):
     image_size = 4
 
     latent_input = Input((latent_dim,))
@@ -36,7 +36,7 @@ def build_generator(latent_dim, classes_n, resolution, channels, filters=128, ke
     return generator
 
 
-def build_critic(resolution, channels, classes_n, filters=32, kernel_size=4):
+def build_critic(resolution, channels, classes_n, filters=32, kernel_size=3):
     image_size = resolution
 
     critic_inputs = Input((resolution, resolution, channels))

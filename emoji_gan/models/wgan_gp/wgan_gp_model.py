@@ -1,13 +1,23 @@
 import os
 import pickle
 
+from keras.models import load_model
+
 from models.wgan_gp import wgan_gp_utils
 from models import utils
 import numpy as np
 
 
 class WGAN_GP:
-    def __init__(self, config):
+    def __init__(self, config, restore_models=False, models_root_filepath='', new_epochs=0):
+        if restore_models:
+            self._restore_models(models_root_filepath, new_epochs)
+        else:
+            self._apply_config(config)
+            self._losses = [[], []]
+            self._build_models()
+
+    def _apply_config(self, config):
         self._channels = config['channels']
         self._batch_size = config['batch_size']
         self._epochs = config['epochs']
@@ -33,10 +43,26 @@ class WGAN_GP:
 
         self._lr_decay_factor = config['lr_decay_factor']
         self._lr_decay_steps = config['lr_decay_steps']
+        self._epoch = config['epoch']
 
-        self._epoch = 0
-        self._losses = [[], []]
+    def _restore_models(self, models_root_filepath, new_epochs):
+        config_filepath = models_root_filepath + 'config.json'
+        config = utils.load_config(config_filepath)
+
+        self._apply_config(config)
+        self._epochs = new_epochs
+
+        losses_filepath = models_root_filepath + 'losses.p'
+        with open(losses_filepath, 'rb') as f:
+            self._losses = pickle.load(f)
+            self._losses[0] = self._losses[0][:self._epoch]
+            self._losses[1] = self._losses[1][:self._epoch]
+
         self._build_models()
+
+        model_checkpoints = [f.path for f in os.scandir(models_root_filepath + 'models/') if f.is_dir()]
+        model_checkpoint = sorted(model_checkpoints)[-1]
+        self._load_models(model_checkpoint + '/')
 
     def _build_models(self):
         self._generator = wgan_gp_utils.build_generator(self._latent_dim, self._resolution, self._channels)
@@ -78,6 +104,7 @@ class WGAN_GP:
             self._losses[0].append(generator_loss)
             self._losses[1].append(critic_loss)
 
+            # if self._epoch % 100 == 0:
             print("%d [C loss: %+.6f] [G loss: %+.6f]" % (self._epoch, critic_loss, generator_loss))
 
             if self._epoch % self._loss_frequency == 0:
@@ -137,12 +164,18 @@ class WGAN_GP:
     def _save_models(self):
         root_dir = self._model_dir + '/' + str(self._epoch) + '/'
         os.makedirs(root_dir)
-        self._generator_model.save(root_dir + 'generator_model.h5')
-        self._critic_model.save(root_dir + 'critic_model.h5')
-        self._generator.save(root_dir + 'generator.h5')
-        self._critic.save(root_dir + 'critic.h5')
+        self._generator_model.save_weights(root_dir + 'generator_model.h5')
+        self._critic_model.save_weights(root_dir + 'critic_model.h5')
+        self._generator.save_weights(root_dir + 'generator.h5')
+        self._critic.save_weights(root_dir + 'critic.h5')
 
         utils.update_config_epoch(self._run_dir + '/config.json', self._epoch)
+
+    def _load_models(self, models_checkpoint):
+        self._generator_model.load_weights(models_checkpoint + 'generator_model.h5')
+        self._critic_model.load_weights(models_checkpoint + 'critic_model.h5')
+        self._generator.load_weights(models_checkpoint + 'generator.h5')
+        self._critic.load_weights(models_checkpoint + 'critic.h5')
 
     def _generate_dataset(self):
         z_samples = np.random.normal(0, 1, (self._dataset_generation_size, self._latent_dim))
