@@ -1,6 +1,6 @@
 # Emoji-GAN
 [![Build Status](https://travis-ci.org/HitLuca/Emoji-GAN.svg)](https://travis-ci.org/HitLuca/Emoji-GAN)
-[![Coverage Status](https://coveralls.io/repos/github/HitLuca/Emoji-GAN/badge.svg)](https://coveralls.io/github/HitLuca/Emoji-GAN)
+[![Coverage status](https://codecov.io/gh/HitLuca/Emoji-GAN/branch/master/graph/badge.svg)](https://codecov.io/gh/HitLuca/Emoji-GAN)
 [![License MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![HitCount](http://hits.dwyl.io/HitLuca/Emoji-GAN.svg)](http://hits.dwyl.io/HitLuca/Emoji-GAN)
 [![Total alerts](https://img.shields.io/lgtm/alerts/g/HitLuca/Emoji-GAN.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/HitLuca/Emoji-GAN/alerts/)
