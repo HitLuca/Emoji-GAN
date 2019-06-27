@@ -1,30 +1,21 @@
 from functools import partial
 
 from keras import Model, Input
-from keras.layers import Dense, LeakyReLU, Reshape, UpSampling2D, Conv2D, MaxPooling2D, Flatten, Lambda, \
-    BatchNormalization
-import numpy as np
-import keras.backend as K
-from keras.layers.merge import _Merge
-from keras.losses import mean_squared_error
+from keras.layers import Dense, LeakyReLU, Reshape, Conv2D, Flatten, Lambda
 from keras.optimizers import Adam
 
-from models import utils
+from emoji_gan.utils.gan_utils import conv_series, deconv_series, vae_loss, gradient_penalty_loss, \
+    RandomWeightedAverage, sampling, set_model_trainable, wasserstein_loss, conv_res_series, deconv_res_series
 
 
-def build_encoder(latent_dim, resolution, channels, filters=32, kernel_size=3):
+def build_encoder(latent_dim, resolution, filters=32, kernel_size=3, channels=3):
     image_size = resolution
 
     encoder_inputs = Input((resolution, resolution, channels))
     encoded = encoder_inputs
 
-    while image_size != 4:
-        encoded = Conv2D(filters, kernel_size, padding='same')(encoded)
-        encoded = BatchNormalization()(encoded)
-        encoded = LeakyReLU(0.2)(encoded)
-        encoded = MaxPooling2D()(encoded)
-        image_size /= 2
-        filters = filters * 2
+    encoded = conv_res_series(encoded, image_size, 4, kernel_size, filters)
+    encoded = LeakyReLU()(encoded)
 
     encoded = Flatten()(encoded)
 
@@ -32,61 +23,54 @@ def build_encoder(latent_dim, resolution, channels, filters=32, kernel_size=3):
     z_log_var = Dense(latent_dim)(encoded)
 
     encoder = Model(encoder_inputs, [z_mean, z_log_var], name='encoder')
+    print(encoder.summary())
     return encoder
 
 
-def build_decoder(latent_dim, resolution, channels, filters=128, kernel_size=3):
+def build_decoder(latent_dim, resolution, filters=32, kernel_size=3, channels=3):
     image_size = 4
+    filters *= int(resolution / image_size / 2)
 
     decoder_inputs = Input((latent_dim,))
     decoded = decoder_inputs
 
-    decoded = Dense(image_size*image_size*32)(decoded)
-    decoded = BatchNormalization()(decoded)
-    decoded = LeakyReLU(0.2)(decoded)
+    decoded = Dense(image_size * image_size * 8)(decoded)
+    decoded = LeakyReLU()(decoded)
 
-    decoded = Reshape((image_size, image_size, 32))(decoded)
+    decoded = Reshape((image_size, image_size, 8))(decoded)
 
-    while image_size != resolution:
-        decoded = UpSampling2D()(decoded)
-        decoded = Conv2D(filters, kernel_size, padding='same')(decoded)
-        decoded = BatchNormalization()(decoded)
-        decoded = LeakyReLU(0.2)(decoded)
-        image_size *= 2
-        filters = int(filters / 2)
+    decoded = deconv_res_series(decoded, image_size, resolution, kernel_size, filters)
+    decoded = LeakyReLU()(decoded)
 
-    decoded = Conv2D(channels, kernel_size, padding='same', activation='tanh')(decoded)
+    decoded = Conv2D(channels, kernel_size, padding='same', activation='sigmoid')(decoded)
 
-    decoder = Model(decoder_inputs, decoded, name='decoder')
+    decoder = Model(decoder_inputs, decoded, name='generator')
+    print(decoder.summary())
     return decoder
 
 
-def build_critic(resolution, channels, filters=32, kernel_size=3):
+def build_critic(resolution, filters=32, kernel_size=3, channels=3):
     image_size = resolution
 
     critic_inputs = Input((resolution, resolution, channels))
     criticized = critic_inputs
 
-    while image_size != 4:
-        criticized = Conv2D(filters, kernel_size, padding='same')(criticized)
-        criticized = LeakyReLU(0.2)(criticized)
-        criticized = MaxPooling2D()(criticized)
-        image_size /= 2
-        filters = filters * 2
+    criticized = conv_res_series(criticized, image_size, 4, kernel_size, filters)
+    criticized = LeakyReLU()(criticized)
 
     criticized = Flatten()(criticized)
 
     criticized = Dense(1)(criticized)
 
     critic = Model(critic_inputs, criticized, name='critic')
-
+    print(critic.summary())
     return critic
 
 
-def build_vae_model(encoder, decoder_generator, critic, latent_dim, resolution, channels, gamma, vae_lr):
-    utils.set_model_trainable(encoder, True)
-    utils.set_model_trainable(decoder_generator, True)
-    utils.set_model_trainable(critic, False)
+def build_vae_generator_model(encoder, decoder_generator, critic, latent_dim, resolution, channels, gamma, vae_lr):
+    set_model_trainable(encoder, True)
+    set_model_trainable(decoder_generator, True)
+    set_model_trainable(critic, False)
 
     real_samples = Input((resolution, resolution, channels))
     noise_samples = Input((latent_dim,))
@@ -97,34 +81,22 @@ def build_vae_model(encoder, decoder_generator, critic, latent_dim, resolution, 
     z_mean, z_log_var = encoder(real_samples)
 
     sampled_z = Lambda(sampling)([z_mean, z_log_var])
-    decoded_inputs = decoder_generator(sampled_z)
+    decoded_samples = decoder_generator(sampled_z)
 
-    real_criticized = critic(real_samples)
-    decoded_criticized = critic(decoded_inputs)
-
-    vae_model = Model([real_samples, noise_samples], [generated_criticized, generated_criticized])
-    vae_model.compile(optimizer=Adam(lr=vae_lr, beta_1=0.5, beta_2=0.9),
-                      loss=[utils.wasserstein_loss,
-                            vae_loss(z_mean, z_log_var, real_criticized, decoded_criticized)],
-                      loss_weights=[gamma, (1 - gamma)])
+    vae_generator_model = Model([real_samples, noise_samples], [generated_criticized, generated_criticized])
+    vae_generator_model.compile(optimizer=Adam(lr=vae_lr, beta_1=0.5, beta_2=0.9),
+                                loss=[wasserstein_loss, vae_loss(z_mean, z_log_var, real_samples, decoded_samples)],
+                                loss_weights=[gamma, (1 - gamma)])
 
     generator_model = Model(noise_samples, generated_samples, name='generator_model')
-    return vae_model, generator_model
-
-
-def vae_loss(z_mean, z_log_var, real_criticized, decoded_criticized):
-    def loss(y_true, y_pred):
-        mse_loss = mean_squared_error(real_criticized, decoded_criticized)
-        kl_loss = - 0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
-        return K.mean(mse_loss + kl_loss)
-    return loss
+    return vae_generator_model, generator_model
 
 
 def build_critic_model(encoder, decoder_generator, critic, latent_dim, resolution, channels, batch_size, critic_lr,
                        gradient_penalty_weight):
-    utils.set_model_trainable(encoder, False)
-    utils.set_model_trainable(decoder_generator, False)
-    utils.set_model_trainable(critic, True)
+    set_model_trainable(encoder, False)
+    set_model_trainable(decoder_generator, False)
+    set_model_trainable(critic, True)
 
     noise_samples = Input((latent_dim,))
     real_samples = Input((resolution, resolution, channels))
@@ -145,33 +117,5 @@ def build_critic_model(encoder, decoder_generator, critic, latent_dim, resolutio
                          [real_criticized, generated_criticized, averaged_criticized], name='critic_model')
 
     critic_model.compile(optimizer=Adam(critic_lr, beta_1=0.5, beta_2=0.9),
-                         loss=[utils.wasserstein_loss, utils.wasserstein_loss, partial_gp_loss])
+                         loss=[wasserstein_loss, wasserstein_loss, partial_gp_loss])
     return critic_model
-
-
-def gradient_penalty_loss(_, y_pred, averaged_samples, gradient_penalty_weight):
-    gradients = K.gradients(y_pred, averaged_samples)[0]
-    gradients_sqr = K.square(gradients)
-    gradients_sqr_sum = K.sum(gradients_sqr, axis=np.arange(1, len(gradients_sqr.shape)))
-    gradient_l2_norm = K.sqrt(gradients_sqr_sum)
-    gradient_penalty = gradient_penalty_weight * K.square(1 - gradient_l2_norm)
-    return K.mean(gradient_penalty)
-
-
-class RandomWeightedAverage(_Merge):
-    def __init__(self, batch_size, **kwargs):
-        super().__init__(**kwargs)
-        self._batch_size = batch_size
-
-    def _merge_function(self, inputs):
-        weights = K.random_uniform((self._batch_size, 1, 1, 1))
-        averaged_inputs = (weights * inputs[0]) + ((1 - weights) * inputs[1])
-        return averaged_inputs
-
-
-def sampling(args):
-    z_mean, z_log_var = args
-    batch_size = K.shape(z_mean)[0]
-    latent_dim = K.int_shape(z_mean)[1]
-    epsilon = K.random_normal(shape=(batch_size, latent_dim))
-    return z_mean + K.exp(0.5 * z_log_var) * epsilon

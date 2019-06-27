@@ -1,90 +1,67 @@
-from keras import Model, Input
-from keras.layers import Dense, LeakyReLU, Reshape, UpSampling2D, Conv2D, MaxPooling2D, Flatten, Conv2DTranspose, Add, \
-    Activation, Lambda
-
-from keras.optimizers import Adam
 import keras.backend as K
+from keras import Model, Input
+from keras.layers import Dense, Reshape, UpSampling2D, Conv2D, MaxPooling2D, Flatten, Conv2DTranspose, Add, \
+    Activation, Lambda, LeakyReLU
+from keras.optimizers import Adam
 
-from models import utils
+from emoji_gan.utils.gan_utils import deconv_res_series, conv_res_series, set_model_trainable
 
 
-def build_decoder(latent_dim, resolution, channels, filters=128, kernel_size=3):
+def build_decoder(latent_dim, resolution, filters=32, kernel_size=3, channels=3):
     image_size = 4
+    filters *= int(resolution / image_size / 2)
 
     decoder_inputs = Input((latent_dim,))
     decoded = decoder_inputs
 
-    decoded = Dense(image_size*image_size*32)(decoded)
-    # decoded = LeakyReLU(0.2)(decoded)
-    # decoded = Activation('elu')(decoded)
+    decoded = Dense(image_size * image_size * 8)(decoded)
+    decoded = LeakyReLU()(decoded)
 
-    decoded = Reshape((image_size, image_size, 32))(decoded)
+    decoded = Reshape((image_size, image_size, 8))(decoded)
 
-    while image_size != resolution:
-        shortcut = decoded
-        shortcut = Conv2DTranspose(filters, 1, strides=2, padding='same')(shortcut)
+    decoded = deconv_res_series(decoded, image_size, resolution, kernel_size, filters)
+    decoded = LeakyReLU()(decoded)
 
-        decoded = UpSampling2D()(decoded)
-        decoded = Conv2D(filters, kernel_size, padding='same', activation='elu')(decoded)
-        decoded = Conv2D(filters, kernel_size, padding='same')(decoded)
-
-        decoded = Add()([shortcut, decoded])
-        decoded = Activation('elu')(decoded)
-
-        image_size *= 2
-        filters = int(filters / 2)
-
-    decoded = Conv2D(channels, kernel_size, padding='same', activation='tanh')(decoded)
+    decoded = Conv2D(channels, kernel_size, padding='same', activation='sigmoid')(decoded)
 
     decoder = Model(decoder_inputs, decoded, name='decoder')
+    print(decoder.summary())
     return decoder
 
 
-def build_encoder(latent_dim, resolution, channels, filters=32, kernel_size=3):
+def build_encoder(latent_dim, resolution, filters=32, kernel_size=3, channels=3):
     image_size = resolution
 
     encoder_inputs = Input((resolution, resolution, channels))
     encoded = encoder_inputs
 
-    while image_size != 4:
-        shortcut = encoded
-        shortcut = Conv2D(filters, 1, strides=2, padding='same')(shortcut)
-
-        encoded = Conv2D(filters, kernel_size, padding='same', activation='elu')(encoded)
-        encoded = Conv2D(filters, kernel_size, padding='same')(encoded)
-        # encoded = LeakyReLU(0.2)(encoded)
-        # decoded = Activation('elu')(encoded)
-        encoded = MaxPooling2D()(encoded)
-
-        encoded = Add()([shortcut, encoded])
-        # encoded = LeakyReLU(0.2)(encoded)
-        decoded = Activation('elu')(encoded)
-
-        image_size /= 2
-        filters = filters * 2
+    encoded = conv_res_series(encoded, image_size, 4, kernel_size, filters)
+    encoded = LeakyReLU()(encoded)
 
     encoded = Flatten()(encoded)
     encoded = Dense(latent_dim)(encoded)
 
     encoder = Model(encoder_inputs, encoded, name='encoder')
+    print(encoder.summary())
     return encoder
 
 
-def build_discriminator(latent_dim, resolution, channels):
+def build_discriminator(latent_dim, resolution, channels=3):
     input_samples = Input((resolution, resolution, channels))
 
-    encoder = build_encoder(latent_dim, resolution, channels)
-    decoder = build_decoder(latent_dim, resolution, channels)
+    encoder = build_encoder(latent_dim, resolution)
+    decoder = build_decoder(latent_dim, resolution)
 
     encoded_samples = encoder(input_samples)
     decoded_samples = decoder(encoded_samples)
 
     discriminator = Model(input_samples, decoded_samples, name='discriminator')
+    print(discriminator.summary())
     return discriminator
 
 
 def build_generator_model(generator, discriminator, latent_dim, generator_lr, loss_exponent):
-    utils.set_model_trainable(discriminator, False)
+    set_model_trainable(discriminator, False)
 
     input_noise = Input((latent_dim,))
     generated_samples = generator(input_noise)
@@ -97,8 +74,8 @@ def build_generator_model(generator, discriminator, latent_dim, generator_lr, lo
     return generator_model
 
 
-def build_discriminator_model(discriminator, resolution, channels, discriminator_lr, loss_exponent):
-    utils.set_model_trainable(discriminator, True)
+def build_discriminator_model(discriminator, resolution, discriminator_lr, loss_exponent, channels = 3):
+    set_model_trainable(discriminator, True)
 
     real_samples = Input((resolution, resolution, channels))
     generated_samples = Input((resolution, resolution, channels))

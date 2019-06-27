@@ -5,64 +5,61 @@ from keras.layers import *
 from keras.layers.merge import _Merge
 from keras.optimizers import Adam
 
-from .. import utils
+from emoji_gan.utils.gan_utils import deconv_series, conv_series, set_model_trainable, wasserstein_loss, \
+    gradient_penalty_loss, RandomWeightedAverage, deconv_res_series, conv_res_series
 
 
-def build_generator(latent_dim, classes_n, resolution, channels, filters=128, kernel_size=3):
+def build_generator(latent_dim, classes_n, resolution, filters=32, kernel_size=3, channels=3):
     image_size = 4
+    filters *= int(resolution / image_size / 2)
 
     latent_input = Input((latent_dim,))
     conditional_input = Input((classes_n,))
 
     generated = Concatenate()([latent_input, conditional_input])
 
-    generated = Dense(image_size*image_size*32)(generated)
-    # generated = BatchNormalization()(generated)
+    generated = Dense(image_size*image_size*8)(generated)
     generated = LeakyReLU()(generated)
 
-    generated = Reshape((image_size, image_size, 32))(generated)
+    generated = Reshape((image_size, image_size, 8))(generated)
 
-    while image_size != resolution:
-        generated = UpSampling2D()(generated)
-        generated = Conv2D(filters, kernel_size, padding='same')(generated)
-        # generated = BatchNormalization()(generated)
-        generated = LeakyReLU()(generated)
-        image_size *= 2
-        filters = int(filters / 2)
+    generated = deconv_res_series(generated, image_size, resolution, kernel_size, filters)
+    generated = LeakyReLU()(generated)
 
-    generated = Conv2D(channels, kernel_size, padding='same', activation='tanh')(generated)
+    generated = Conv2D(channels, kernel_size, padding='same', activation='sigmoid')(generated)
 
     generator = Model([latent_input, conditional_input], generated, name='generator')
+    print(generator.summary())
     return generator
 
 
-def build_critic(resolution, channels, classes_n, filters=32, kernel_size=3):
+def build_critic(resolution, classes_n, filters=32, kernel_size=3, channels=3):
     image_size = resolution
 
     critic_inputs = Input((resolution, resolution, channels))
+    class_inputs = Input((classes_n,))
+
     criticized = critic_inputs
 
-    while image_size != 4:
-        criticized = Conv2D(filters, kernel_size, padding='same')(criticized)
-        criticized = LeakyReLU()(criticized)
-        criticized = MaxPooling2D()(criticized)
-        image_size /= 2
-        filters = filters * 2
+    criticized = conv_res_series(criticized, image_size, 4, kernel_size, filters)
+    criticized = LeakyReLU()(criticized)
 
     criticized = Flatten()(criticized)
+    criticized = Concatenate()([criticized, class_inputs])
 
-    class_input = Input((classes_n,))
-    criticized = Concatenate()([criticized, class_input])
+    criticized = Dense(128)(criticized)
+    criticized = LeakyReLU()(criticized)
 
     criticized = Dense(1)(criticized)
 
-    critic = Model([critic_inputs, class_input], criticized, name='critic')
+    critic = Model([critic_inputs, class_inputs], criticized, name='critic')
+    print(critic.summary())
     return critic
 
 
 def build_generator_model(generator, critic, latent_dim, classes_n, generator_lr):
-    utils.set_model_trainable(generator, True)
-    utils.set_model_trainable(critic, False)
+    set_model_trainable(generator, True)
+    set_model_trainable(critic, False)
 
     noise_samples = Input((latent_dim,))
     class_samples = Input((classes_n,))
@@ -72,14 +69,14 @@ def build_generator_model(generator, critic, latent_dim, classes_n, generator_lr
     generated_criticized = critic([generated_samples, class_samples])
 
     generator_model = Model([noise_samples, class_samples], generated_criticized, name='generator_model')
-    generator_model.compile(optimizer=Adam(generator_lr, beta_1=0.5, beta_2=0.9), loss=utils.wasserstein_loss)
+    generator_model.compile(optimizer=Adam(generator_lr, beta_1=0.5, beta_2=0.9), loss=wasserstein_loss)
     return generator_model
 
 
-def build_critic_model(generator, critic, latent_dim, resolution, channels, classes_n, batch_size, critic_lr,
-                       gradient_penalty_weight):
-    utils.set_model_trainable(generator, False)
-    utils.set_model_trainable(critic, True)
+def build_critic_model(generator, critic, latent_dim, resolution, classes_n, batch_size, critic_lr,
+                       gradient_penalty_weight, channels=3):
+    set_model_trainable(generator, False)
+    set_model_trainable(critic, True)
 
     noise_samples = Input((latent_dim,))
     class_samples = Input((classes_n,))
@@ -102,25 +99,5 @@ def build_critic_model(generator, critic, latent_dim, resolution, channels, clas
                          [real_criticized, generated_criticized, averaged_criticized], name='critic_model')
 
     critic_model.compile(optimizer=Adam(critic_lr, beta_1=0.5, beta_2=0.9),
-                         loss=[utils.wasserstein_loss, utils.wasserstein_loss, partial_gp_loss])
+                         loss=[wasserstein_loss, wasserstein_loss, partial_gp_loss])
     return critic_model
-
-
-def gradient_penalty_loss(_, y_pred, averaged_samples, gradient_penalty_weight):
-    gradients = K.gradients(y_pred, averaged_samples)[0]
-    gradients_sqr = K.square(gradients)
-    gradients_sqr_sum = K.sum(gradients_sqr, axis=np.arange(1, len(gradients_sqr.shape)))
-    gradient_l2_norm = K.sqrt(gradients_sqr_sum)
-    gradient_penalty = gradient_penalty_weight * K.square(1 - gradient_l2_norm)
-    return K.mean(gradient_penalty)
-
-
-class RandomWeightedAverage(_Merge):
-    def __init__(self, batch_size, **kwargs):
-        super().__init__(**kwargs)
-        self._batch_size = batch_size
-
-    def _merge_function(self, inputs):
-        weights = K.random_uniform((self._batch_size, 1, 1, 1))
-        averaged_inputs = (weights * inputs[0]) + ((1 - weights) * inputs[1])
-        return averaged_inputs

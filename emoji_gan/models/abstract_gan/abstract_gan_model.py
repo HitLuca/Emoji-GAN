@@ -1,51 +1,60 @@
 import abc
-import pickle
-import numpy as np
-
-from models import utils
 
 
 class AbstractGAN(abc.ABC):
-    def __init__(self, r_c, m_c):
-        self._r_c = r_c
-        self._m_c = m_c
-        self._losses = []
-        self._legend_names = []
+    def __init__(self, run_dir: str, outputs_dir: str, model_dir: str, generated_datasets_dir: str,
+                 resolution: int, channels: int, epochs: int, output_save_frequency: int,
+                 model_save_frequency: int, loss_save_frequency: int,
+                 latent_space_save_frequency: int, dataset_generation_frequency: int, dataset_size: int,
+                 latent_dim: int, latent_space_rows: int=6, latent_space_columns: int=6, outputs_rows: int=6,
+                 outputs_columns: int=6):
+        self._run_dir = run_dir
+        self._outputs_dir = outputs_dir
+        self._model_dir = model_dir
+        self._generated_datasets_dir = generated_datasets_dir
 
-        self._samples_rows, self._samples_columns = 6, 6
-        self._latent_grid_size = 6
+        self._resolution = resolution
+        self._channels = channels
+        self._epochs = epochs
+        self._output_save_frequency = output_save_frequency
+        self._model_save_frequency = model_save_frequency
+        self._loss_save_frequency = loss_save_frequency
+        self._latent_space_save_frequency = latent_space_save_frequency
+        self._latent_dim = latent_dim
 
-    @abc.abstractmethod
-    def train(self, dataset, classes):
-        pass
+        self._dataset_generation_frequency = dataset_generation_frequency
+        self._dataset_size = dataset_size
 
-    @abc.abstractmethod
-    def resume_training(self, run_filepath, checkpoint, new_epochs):
-        pass
+        self._latent_space_rows = latent_space_rows
+        self._latent_space_columns = latent_space_columns
 
-    @abc.abstractmethod
-    def generate_random_samples(self, n):
-        pass
+        self._outputs_rows = outputs_rows
+        self._outputs_columns = outputs_columns
 
-    @abc.abstractmethod
-    def restore_models(self, models_checkpoint):
-        pass
+        self._epoch = 0
 
     @abc.abstractmethod
     def _build_models(self):
         pass
 
     @abc.abstractmethod
-    def _save_samples(self):
+    def train(self, dataset, classes):
         pass
 
-    def _save_samples_common(self, generated_samples):
-        filenames = [self._r_c.img_dir + ('/%07d.png' % self._r_c.epoch), self._r_c.img_dir + '/last.png']
-        utils.save_samples(generated_samples, self._samples_rows, self._samples_columns,
-                           self._r_c.resolution, self._r_c.channels, filenames)
+    @abc.abstractmethod
+    def _save_models_architectures(self):
+        pass
+
+    @abc.abstractmethod
+    def _save_outputs(self):
+        pass
 
     @abc.abstractmethod
     def _save_latent_space(self):
+        pass
+
+    @abc.abstractmethod
+    def _save_losses(self):
         pass
 
     @abc.abstractmethod
@@ -55,29 +64,3 @@ class AbstractGAN(abc.ABC):
     @abc.abstractmethod
     def _generate_dataset(self):
         pass
-
-    @abc.abstractmethod
-    def get_models(self):
-        pass
-
-    def _save_losses(self):
-        utils.save_losses(self._losses, self._r_c.img_dir + '/losses.png', self._legend_names)
-
-        with open(self._r_c.run_dir + '/losses.p', 'wb') as f:
-            pickle.dump(self._losses, f)
-
-    def _generate_dataset_common(self, generated_dataset):
-        np.save(self._r_c.generated_datasets_dir + ('/%d_generated_data' % self._r_c.epoch), generated_dataset)
-
-    def _save_latent_space_common(self, generated_samples):
-        filenames = [self._r_c.img_dir + '/latent_space.png',
-                     self._r_c.img_dir + ('/%07d_latent_space.png' % self._r_c.epoch)]
-        utils.save_latent_space(generated_samples, self._latent_grid_size,
-                                self._r_c.resolution, self._r_c.channels, filenames)
-
-    def _save_configs(self):
-        r_c_filepath = self._r_c.run_dir + '/run_config.json'
-        self._r_c.save(r_c_filepath)
-
-        m_c_filepath = self._r_c.run_dir + '/model_config.json'
-        self._m_c.save(m_c_filepath)

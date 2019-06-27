@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('setup_datasets')
 
 
-img_folder = './img/'
+img_folder = 'dataset/img/'
 
 emoji_repo_url = 'https://github.com/iamcal/emoji-data/'
 img_repo_url = emoji_repo_url + 'raw/master/'
@@ -57,20 +57,20 @@ def png_to_dataset(png, resolution):
     return np.array(emojis)
 
 
-def main():
+if __name__ == "__main__":
     if not os.path.exists(img_folder):
         os.makedirs(img_folder)
         download_dataset(img_folder)
-
-    companies = ['google', 'apple', 'twitter', 'facebook', 'messenger']
-    resolutions = [16, 20, 32, 64]
 
     categories_data = json.load(open('categories.json', 'r'))
     categories_names = list(categories_data.keys())
     emoji_data = json.load(open('emoji.json', 'r'))
 
-    np.save('companies_names', np.array(companies))
-    np.save('categories_names.npy', np.array(categories_names))
+    with open('companies_names.json', 'w') as f:
+        json.dump(companies, f)
+
+    with open('categories_names.json', 'w') as f:
+        json.dump(categories_names, f)
 
     logger.info('generating datasets...')
     for resolution in resolutions:
@@ -105,15 +105,10 @@ def main():
                     classes.append([company_index, category_index])
         dataset = np.array(dataset)
         dataset = dataset / 255.0
-        dataset = dataset * 2 - 1
 
         classes = np.array(classes)
 
-        np.save('emojis_' + str(resolution) + '.npy', dataset)
+        np.save('emojis_' + str(resolution) + '.npy', dataset.astype(np.float32))
         np.save('emojis_classes' + '.npy', classes)
 
     logger.info('done')
-
-
-if __name__ == "__main__":
-    main()

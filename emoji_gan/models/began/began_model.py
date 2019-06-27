@@ -1,53 +1,99 @@
 import os
-import pickle
 
 import keras.backend as K
 import numpy as np
+from keras.utils import plot_model
 
-from models.abstract_gan.abstract_gan_model import AbstractGAN
-from models.began import began_utils
-from models.began.began_config import BEGANConfig
-from models.run_config import RunConfig
+from emoji_gan.models.abstract_gan.abstract_gan_model import AbstractGAN
+from emoji_gan.models.began import began_utils
+from emoji_gan.utils.utils import plot_save_samples, plot_save_latent_space, plot_save_losses
+
+gamma = 0.5
+lambda_k = 0.001
+batch_size = 16
+initial_lr = 1e-4
+min_lr = 1e-5
+lr_decay_rate = 0.9
+k = 0
+loss_exponent = 1
 
 
 class BEGAN(AbstractGAN):
-    def __init__(self, r_c, m_c=BEGANConfig()):
-        super().__init__(r_c, m_c)
+    def __init__(self, run_dir: str, outputs_dir: str, model_dir: str, generated_datasets_dir: str, resolution: int,
+                 channels: int, epochs: int, output_save_frequency: int, model_save_frequency: int,
+                 loss_save_frequency: int, latent_space_save_frequency: int, dataset_generation_frequency: int,
+                 dataset_size: int, latent_dim: int):
+
+        super().__init__(run_dir=run_dir, outputs_dir=outputs_dir, model_dir=model_dir,
+                         generated_datasets_dir=generated_datasets_dir, resolution=resolution, channels=channels,
+                         epochs=epochs, output_save_frequency=output_save_frequency,
+                         model_save_frequency=model_save_frequency, loss_save_frequency=loss_save_frequency,
+                         latent_space_save_frequency=latent_space_save_frequency,
+                         dataset_generation_frequency=dataset_generation_frequency, dataset_size=dataset_size,
+                         latent_dim=latent_dim)
+
+        self._gamma = gamma
+        self._lambda_k = lambda_k
+        self._batch_size = batch_size
+        self._initial_lr = initial_lr
+        self._min_lr = min_lr
+        self._lr_decay_rate = lr_decay_rate
+        self._k = k
+        self._loss_exponent = loss_exponent
+
+        self._lr = self._initial_lr
         self._losses = [[], [], [], []]
-        self._legend_names = ['generator', 'discriminator', 'k', 'm_global']
+        self._global_step = 0
 
         self._build_models()
+        self._save_models_architectures()
+
+    def _build_models(self):
+        self._generator = began_utils.build_decoder(self._latent_dim, self._resolution)
+        self._discriminator = began_utils.build_discriminator(self._latent_dim, self._resolution)
+
+        self._discriminator_model = began_utils.build_discriminator_model(self._discriminator, self._resolution,
+                                                                          self._initial_lr, self._loss_exponent)
+
+        self._generator_model = began_utils.build_generator_model(self._generator, self._discriminator,
+                                                                  self._latent_dim, self._initial_lr,
+                                                                  self._loss_exponent)
+
+    def _save_models_architectures(self):
+        plot_model(self._generator, to_file=self._run_dir + 'generator.png')
+        plot_model(self._discriminator, to_file=self._run_dir + 'discriminator.png')
 
     def train(self, dataset, *_):
-        zeros = np.zeros(self._m_c.batch_size)
-        zeros_2 = np.zeros(self._m_c.batch_size * 2)
+        zeros = np.zeros(self._batch_size)
+        zeros_2 = np.zeros(self._batch_size * 2)
 
-        batches_per_epoch = dataset.shape[0] // self._m_c.batch_size
+        batches_per_epoch = dataset.shape[0] // self._batch_size
         dataset_indexes = np.arange(len(dataset))
 
         last_m_global = np.inf
         lr_decay_step = 0
 
-        while self._r_c.epoch < self._r_c.epochs:
-            self._r_c.epoch += 1
+        while self._epoch < self._epochs:
+            self._epoch += 1
             np.random.shuffle(dataset_indexes)
 
-            self._m_c.lr = max(self._m_c.initial_lr * (self._m_c.lr_decay_rate ** lr_decay_step), self._m_c.min_lr)
-            K.set_value(self._generator_model.optimizer.lr, self._m_c.lr)
-            K.set_value(self._discriminator_model.optimizer.lr, self._m_c.lr)
+            self._lr = max(self._initial_lr * (self._lr_decay_rate ** lr_decay_step), self._min_lr)
+            K.set_value(self._generator_model.optimizer.lr, self._lr)
+            K.set_value(self._discriminator_model.optimizer.lr, self._lr)
 
             m_history = []
             k_history = []
             generator_losses = []
             discriminator_losses = []
             for batch in range(batches_per_epoch):
-                k_model = np.ones(self._m_c.batch_size) * self._m_c.k
+                self._global_step += 1
+                k_model = np.ones(self._batch_size) * self._k
 
-                indexes = dataset_indexes[batch * self._m_c.batch_size:(batch + 1) * self._m_c.batch_size]
+                indexes = dataset_indexes[batch * self._batch_size:(batch + 1) * self._batch_size]
                 real_samples = dataset[indexes]
 
-                noise_decoder = np.random.uniform(-1, 1, (self._m_c.batch_size, self._m_c.latent_dim))
-                noise_generator = np.random.uniform(-1, 1, (self._m_c.batch_size * 2, self._m_c.latent_dim))
+                noise_decoder = np.random.uniform(-1, 1, (self._batch_size, self._latent_dim))
+                noise_generator = np.random.uniform(-1, 1, (self._batch_size * 2, self._latent_dim))
 
                 generated_samples = self._generator.predict(noise_decoder)
 
@@ -60,19 +106,19 @@ class BEGAN(AbstractGAN):
                 discriminator_loss_real = np.mean(discriminator_loss_real)
                 discriminator_loss_generated = np.mean(discriminator_loss_generated)
 
-                discriminator_loss = float(discriminator_loss_real - self._m_c.k * discriminator_loss_generated)
+                discriminator_loss = float(discriminator_loss_real - self._k * discriminator_loss_generated)
 
                 self._update_k(discriminator_loss_real, generator_loss)
 
-                m_value = discriminator_loss_real + np.abs(self._m_c.gamma * discriminator_loss_real - generator_loss)
+                m_value = discriminator_loss_real + np.abs(self._gamma * discriminator_loss_real - generator_loss)
                 m_history.append(m_value)
                 generator_losses.append(generator_loss)
                 discriminator_losses.append(discriminator_loss)
-                k_history.append(self._m_c.k)
+                k_history.append(self._k)
 
                 self._losses[0].append(generator_loss)
                 self._losses[1].append(discriminator_loss)
-                self._losses[2].append(self._m_c.k)
+                self._losses[2].append(self._k)
                 self._losses[3].append(m_value)
 
             generator_loss = float(np.mean(generator_losses))
@@ -84,113 +130,75 @@ class BEGAN(AbstractGAN):
                 lr_decay_step += 1
             last_m_global = m_global
 
-            print("%d [D loss: %+.6f] [G loss: %+.6f] [K: %+.6f] [M: %+.6f]" %
-                  (self._r_c.epoch, discriminator_loss, generator_loss, k, m_global))
-            print("[learning_rate: %+.6f]" % self._m_c.lr)
+            print("%d %d [D loss: %+.6f] [G loss: %+.6f] [K: %+.6f] [M: %+.6f]" %
+                  (self._epoch, self._global_step, discriminator_loss, generator_loss, k, m_global))
+            print("[learning_rate: %+.6f]" % self._lr)
 
-            if self._r_c.epoch % self._r_c.loss_frequency == 0:
+            if self._epoch % self._loss_save_frequency == 0 and self._loss_save_frequency > 0:
                 self._save_losses()
 
-            if self._r_c.epoch % self._r_c.img_frequency == 0:
-                self._save_samples()
+            if self._epoch % self._output_save_frequency == 0 and self._output_save_frequency > 0:
+                self._save_outputs()
 
-            if self._r_c.epoch % self._r_c.latent_space_frequency == 0:
+            if self._epoch % self._latent_space_save_frequency == 0 and self._latent_space_save_frequency > 0:
                 self._save_latent_space()
 
-            if self._r_c.epoch % self._r_c.model_save_frequency == 0:
+            if self._epoch % self._model_save_frequency == 0 and self._model_save_frequency > 0:
                 self._save_models()
 
-            if self._r_c.epoch % self._r_c.dataset_generation_frequency == 0:
+            if self._epoch % self._dataset_generation_frequency == 0 and self._dataset_generation_frequency > 0:
                 self._generate_dataset()
 
         self._generate_dataset()
         self._save_losses()
         self._save_models()
-        self._save_samples()
+        self._save_outputs()
         self._save_latent_space()
 
         return self._losses
 
-    def resume_training(self, run_folder, checkpoint, new_epochs):
-        r_c_filepath = run_folder + 'run_config.json'
-        r_c = RunConfig()
-        r_c.restore(r_c_filepath)
-        r_c.epochs = new_epochs
-
-        m_c_filepath = run_folder + 'model_config.json'
-        m_c = BEGANConfig()
-        m_c.restore(m_c_filepath)
-
-        self.__init__(r_c, m_c)
-
-        losses_filepath = run_folder + 'losses.p'
-        with open(losses_filepath, 'rb') as f:
-            self._losses = pickle.load(f)
-            for i in range(len(self._losses)):
-                self._losses[i] = self._losses[i][:checkpoint]
-
-        self._r_c.epoch = checkpoint
-
-        model_checkpoint = run_folder + 'models/' + str(checkpoint) + '/'
-        self.restore_models(model_checkpoint)
-
-    def generate_random_samples(self, n):
-        noise = np.random.uniform(-1, 1, (n, self._m_c.latent_dim))
-        return self._generator.predict(noise)
-
-    def restore_models(self, models_checkpoint):
-        self._generator_model.load_weights(models_checkpoint + 'generator_model.h5')
-        self._discriminator_model.load_weights(models_checkpoint + 'discriminator_model.h5')
-        self._generator.load_weights(models_checkpoint + 'generator.h5')
-        self._discriminator.load_weights(models_checkpoint + 'discriminator.h5')
-
-    def _build_models(self):
-        self._generator = began_utils.build_decoder(self._m_c.latent_dim, self._r_c.resolution, self._r_c.channels)
-        self._discriminator = began_utils.build_discriminator(self._m_c.latent_dim, self._r_c.resolution,
-                                                              self._r_c.channels)
-        self._discriminator_model = began_utils.build_discriminator_model(self._discriminator, self._r_c.resolution,
-                                                                          self._r_c.channels, self._m_c.initial_lr,
-                                                                          self._m_c.loss_exponent)
-        self._generator_model = began_utils.build_generator_model(self._generator, self._discriminator,
-                                                                  self._m_c.latent_dim, self._m_c.initial_lr,
-                                                                  self._m_c.loss_exponent)
-
-    def _update_k(self, discriminator_loss_real, discriminator_loss_generated):
-        self._m_c.k = self._m_c.k + self._m_c.lambda_k * (
-                    self._m_c.gamma * discriminator_loss_real - discriminator_loss_generated)
-        self._m_c.k = np.clip(self._m_c.k, 0.0, 1.0)
-
-    def _save_samples(self):
-        noise = np.random.uniform(-1, 1, (self._samples_rows * self._samples_columns, self._m_c.latent_dim))
+    def _save_outputs(self):
+        noise = np.random.uniform(-1, 1, (self._outputs_rows * self._outputs_columns, self._latent_dim))
         generated_samples = self._generator.predict(noise)
-        super()._save_samples_common(generated_samples)
+
+        plot_save_samples(generated_samples, self._outputs_rows, self._outputs_columns, self._resolution,
+                          self._channels, self._outputs_dir, self._epoch)
 
     def _save_latent_space(self):
-        latent_space_indexes = np.random.choice(self._m_c.latent_dim, 2, replace=False)
-        latent_space_inputs = np.zeros((self._latent_grid_size * self._latent_grid_size, self._m_c.latent_dim))
+        latent_space_inputs = np.zeros((self._latent_space_rows * self._latent_space_columns, self._latent_dim))
 
-        for i, v_i in enumerate(np.linspace(-1, 1, self._latent_grid_size, True)):
-            for j, v_j in enumerate(np.linspace(-1, 1, self._latent_grid_size, True)):
-                latent_space_inputs[i * self._latent_grid_size + j, latent_space_indexes] = [v_i, v_j]
+        for i, v_i in enumerate(np.linspace(-1, 1, self._latent_space_rows, True)):
+            for j, v_j in enumerate(np.linspace(-1, 1, self._latent_space_columns, True)):
+                latent_space_inputs[i * self._latent_space_rows + j, :2] = [v_i, v_j]
 
-        generated_samples = self._generator.predict(latent_space_inputs)
-        super()._save_latent_space_common(generated_samples)
+        generated_data = self._generator.predict(latent_space_inputs)
+
+        plot_save_latent_space(generated_data, self._latent_space_rows, self._latent_space_columns,
+                               self._resolution, self._channels, self._outputs_dir, self._epoch)
+
+    def _save_losses(self):
+        plot_save_losses(self._losses[:2], ['generator', 'discriminator'], self._outputs_dir, 'gan_loss')
+        plot_save_losses(self._losses[2:3], ['k'], self._outputs_dir, 'k')
+        plot_save_losses(self._losses[3:4], ['m_value'], self._outputs_dir, 'm_value')
+
+    def generate_random_samples(self, n):
+        noise = np.random.uniform(-1, 1, (n, self._latent_dim))
+        return self._generator.predict(noise)
 
     def _save_models(self):
-        root_dir = self._r_c.model_dir + '/' + str(self._r_c.epoch) + '/'
-        os.makedirs(root_dir)
-        self._generator_model.save_weights(root_dir + 'generator_model.h5')
-        self._discriminator_model.save_weights(root_dir + 'discriminator_model.h5')
-        self._generator.save_weights(root_dir + 'generator.h5')
-        self._discriminator.save_weights(root_dir + 'discriminator.h5')
-
-        super()._save_configs()
+        root_dir = self._model_dir + str(self._epoch) + '/'
+        os.mkdir(root_dir)
+        self._discriminator_model.save(root_dir + 'discriminator_model.h5')
+        self._generator_model.save(root_dir + 'generator.h5')
+        self._generator.save(root_dir + 'generator.h5')
+        self._discriminator.save(root_dir + 'discriminator.h5')
 
     def _generate_dataset(self):
-        z_samples = np.random.normal(-1, 1, (self._r_c.dataset_generation_size, self._m_c.latent_dim))
+        z_samples = np.random.uniform(-1, 1, (self._dataset_size, self._latent_dim))
         generated_dataset = self._generator.predict(z_samples)
+        np.save(self._generated_datasets_dir + ('/%d_generated_data' % self._epoch), generated_dataset.astype)
 
-        super()._generate_dataset_common(generated_dataset)
-
-    def get_models(self):
-        return self._generator, self._discriminator, self._generator_model, self._discriminator_model
+    def _update_k(self, discriminator_loss_real, discriminator_loss_generated):
+        self._k = self._k + self._lambda_k * (
+                self._gamma * discriminator_loss_real - discriminator_loss_generated)
+        self._k = np.clip(self._k, 0.0, 1.0)

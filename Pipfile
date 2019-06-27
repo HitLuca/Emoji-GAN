@@ -5,17 +5,16 @@ verify_ssl = true
 
 [dev-packages]
 tensorflow-gpu = "==1.4.0"
-pytest = "*"
-pytest-cov = "*"
-coveralls = "*"
 
 [packages]
 keras = "==2.1.3"
-tensorflow = "*"
 matplotlib = "*"
 imageio = "*"
 h5py = "*"
 pyyaml = "==4.2b4"
+graphviz = "*"
+scipy = "==1.2.0"
+pydot = "*"
 
 [requires]
 python_version = "3.6"

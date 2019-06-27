@@ -1,62 +1,76 @@
 import os
-import pickle
 
-from models import utils
 import numpy as np
+from keras.utils import plot_model
 
-from models.wgan_gp_vae import wgan_gp_vae_utils
+from emoji_gan.models.abstract_gan.abstract_gan_model import AbstractGAN
+from emoji_gan.models.wgan_gp_vae import wgan_gp_vae_utils
+from emoji_gan.utils.utils import plot_save_samples, plot_save_latent_space, plot_save_losses
+
+generator_lr = 1e-4
+critic_lr = 1e-4
+gradient_penalty_weight = 10
+batch_size = 64
+n_generator = 1
+n_critic = 5
+gamma = 0.5
 
 
-class WGAN_GP_VAE:
-    def __init__(self, config):
-        self._batch_size = config['batch_size']
-        self._epochs = config['epochs']
-        self._resolution = config['resolution']
-        self._channels = config['channels']
-        self._n_critic = config['n_critic']
-        self._n_generator = config['n_generator']
-        self._latent_dim = config['latent_dim']
-        self._generator_lr = config['generator_lr']
-        self._critic_lr = config['critic_lr']
-        self._img_frequency = config['img_frequency']
-        self._loss_frequency = config['loss_frequency']
-        self._latent_space_frequency = config['latent_space_frequency']
-        self._model_save_frequency = config['model_save_frequency']
-        self._dataset_generation_frequency = config['dataset_generation_frequency']
-        self._dataset_generation_size = config['dataset_generation_size']
-        self._gradient_penalty_weight = config['gradient_penalty_weight']
-        self._run_dir = config['run_dir']
-        self._img_dir = config['img_dir']
-        self._model_dir = config['model_dir']
-        self._generated_datasets_dir = config['generated_datasets_dir']
-        self._gamma = config['gamma']
+class WGAN_GP_VAE(AbstractGAN):
+    def __init__(self, run_dir: str, outputs_dir: str, model_dir: str, generated_datasets_dir: str, resolution: int,
+                 channels: int, epochs: int, output_save_frequency: int, model_save_frequency: int,
+                 loss_save_frequency: int, latent_space_save_frequency: int, dataset_generation_frequency: int,
+                 dataset_size: int, latent_dim: int):
 
-        self._lr_decay_factor = config['lr_decay_factor']
-        self._lr_decay_steps = config['lr_decay_steps']
+        super().__init__(run_dir=run_dir, outputs_dir=outputs_dir, model_dir=model_dir,
+                         generated_datasets_dir=generated_datasets_dir, resolution=resolution, channels=channels,
+                         epochs=epochs, output_save_frequency=output_save_frequency,
+                         model_save_frequency=model_save_frequency, loss_save_frequency=loss_save_frequency,
+                         latent_space_save_frequency=latent_space_save_frequency,
+                         dataset_generation_frequency=dataset_generation_frequency, dataset_size=dataset_size,
+                         latent_dim=latent_dim)
+        self._generator_lr = generator_lr
+        self._critic_lr = critic_lr
+        self._gradient_penalty_weight = gradient_penalty_weight
+        self._batch_size = batch_size
+        self._n_generator = n_generator
+        self._n_critic = n_critic
+        self._gamma = gamma
 
-        self._epoch = 0
         self._losses = [[], [], []]
+
         self._build_models()
+        self._save_models_architectures()
 
     def _build_models(self):
-        self._encoder = wgan_gp_vae_utils.build_encoder(self._latent_dim, self._resolution, self._channels)
-        self._decoder_generator = wgan_gp_vae_utils.build_decoder(self._latent_dim, self._resolution, self._channels)
-        self._critic = wgan_gp_vae_utils.build_critic(self._resolution, self._channels)
+        self._encoder = wgan_gp_vae_utils.build_encoder(self._latent_dim, self._resolution)
+        self._decoder_generator = wgan_gp_vae_utils.build_decoder(self._latent_dim, self._resolution)
+        self._critic = wgan_gp_vae_utils.build_critic(self._resolution)
 
-        self._vae_model, self._generator = wgan_gp_vae_utils.build_vae_model(self._encoder,
-                                                                             self._decoder_generator,
-                                                                             self._critic,
-                                                                             self._latent_dim,
-                                                                             self._resolution,
-                                                                             self._channels,
-                                                                             self._gamma,
-                                                                             self._generator_lr)
+        self._vae_generator_model, self._generator = \
+            wgan_gp_vae_utils.build_vae_generator_model(self._encoder,
+                                                        self._decoder_generator,
+                                                        self._critic,
+                                                        self._latent_dim,
+                                                        self._resolution,
+                                                        self._channels,
+                                                        self._gamma,
+                                                        self._generator_lr)
 
-        self._critic_model = wgan_gp_vae_utils.build_critic_model(self._encoder, self._decoder_generator, self._critic,
+        self._critic_model = wgan_gp_vae_utils.build_critic_model(self._encoder,
+                                                                  self._decoder_generator,
+                                                                  self._critic,
                                                                   self._latent_dim,
                                                                   self._resolution,
-                                                                  self._channels, self._batch_size, self._critic_lr,
+                                                                  self._channels,
+                                                                  self._batch_size,
+                                                                  self._critic_lr,
                                                                   self._gradient_penalty_weight)
+
+    def _save_models_architectures(self):
+        plot_model(self._encoder, to_file=self._run_dir + 'encoder.png')
+        plot_model(self._decoder_generator, to_file=self._run_dir + 'decoder_generator.png')
+        plot_model(self._critic, to_file=self._run_dir + 'critic.png')
 
     def train(self, dataset, *_):
         ones = np.ones((self._batch_size, 1))
@@ -83,7 +97,7 @@ class WGAN_GP_VAE:
                 noise = np.random.normal(0, 1, (self._batch_size, self._latent_dim))
                 inputs = [real_samples, noise]
 
-                losses = self._vae_model.train_on_batch(inputs, [ones, ones])
+                losses = self._vae_generator_model.train_on_batch(inputs, [ones, ones])
                 generator_losses.append(losses[1])
                 vae_losses.append(losses[2])
             generator_loss = np.mean(generator_losses)
@@ -100,78 +114,62 @@ class WGAN_GP_VAE:
             print("%d [C loss: %+.6f] [G loss: %+.6f] [VAE loss: %+.6f]" % (
                 self._epoch, critic_loss, generator_loss, vae_loss))
 
-            if self._epoch % self._loss_frequency == 0:
+            if self._epoch % self._loss_save_frequency == 0 and self._loss_save_frequency > 0:
                 self._save_losses()
 
-            if self._epoch % self._img_frequency == 0:
-                self._save_samples()
+            if self._epoch % self._output_save_frequency == 0 and self._output_save_frequency > 0:
+                self._save_outputs()
 
-            if self._epoch % self._latent_space_frequency == 0:
+            if self._epoch % self._latent_space_save_frequency == 0 and self._latent_space_save_frequency > 0:
                 self._save_latent_space()
 
-            if self._epoch % self._model_save_frequency == 0:
+            if self._epoch % self._model_save_frequency == 0 and self._model_save_frequency > 0:
                 self._save_models()
 
-            if self._epoch % self._dataset_generation_frequency == 0:
+            if self._epoch % self._dataset_generation_frequency == 0 and self._dataset_generation_frequency > 0:
                 self._generate_dataset()
-
-            if self._epoch % self._lr_decay_steps == 0:
-                self._apply_lr_decay()
 
         self._generate_dataset()
         self._save_losses()
         self._save_models()
-        self._save_samples()
+        self._save_outputs()
         self._save_latent_space()
 
         return self._losses
 
-    def _save_samples(self):
-        rows, columns = 6, 6
-        noise = np.random.normal(0, 1, (rows * columns, self._latent_dim))
-        generated_transactions = self._generator.predict(noise)
+    def _save_outputs(self):
+        noise = np.random.normal(0, 1, (self._outputs_rows * self._outputs_columns, self._latent_dim))
+        generated_samples = self._generator.predict(noise)
 
-        filenames = [self._img_dir + ('/%07d.png' % self._epoch), self._img_dir + '/last.png']
-        utils.save_samples(generated_transactions, rows, columns, self._resolution, self._channels, filenames)
+        plot_save_samples(generated_samples, self._outputs_rows, self._outputs_columns, self._resolution,
+                                self._channels, self._outputs_dir, self._epoch)
 
     def _save_latent_space(self):
-        grid_size = 6
+        latent_space_inputs = np.zeros((self._latent_space_rows * self._latent_space_columns, self._latent_dim))
 
-        latent_space_inputs = np.zeros((grid_size * grid_size, self._latent_dim))
-
-        for i, v_i in enumerate(np.linspace(-1.5, 1.5, grid_size, True)):
-            for j, v_j in enumerate(np.linspace(-1.5, 1.5, grid_size, True)):
-                latent_space_inputs[i * grid_size + j, :2] = [v_i, v_j]
+        for i, v_i in enumerate(np.linspace(-1.5, 1.5, self._latent_space_rows, True)):
+            for j, v_j in enumerate(np.linspace(-1.5, 1.5, self._latent_space_columns, True)):
+                latent_space_inputs[i * self._latent_space_rows + j, :2] = [v_i, v_j]
 
         generated_data = self._generator.predict(latent_space_inputs)
 
-        filenames = [self._img_dir + '/latent_space.png', self._img_dir + ('/%07d_latent_space.png' % self._epoch)]
-        utils.save_latent_space(generated_data, grid_size, self._resolution, self._channels, filenames)
+        plot_save_latent_space(generated_data, self._latent_space_rows, self._latent_space_columns,
+                                     self._resolution, self._channels, self._outputs_dir, self._epoch)
 
     def _save_losses(self):
-        utils.save_losses_wgan_gp_ae(self._losses, self._img_dir + '/losses.png', legend_name='generator VAE')
-
-        with open(self._run_dir + '/losses.p', 'wb') as f:
-            pickle.dump(self._losses, f)
+        plot_save_losses(self._losses[:2], ['generator', 'critic'], self._outputs_dir, 'gan_loss')
+        plot_save_losses(self._losses[2:3], ['vae'], self._outputs_dir, 'vae_loss')
 
     def _save_models(self):
-        root_dir = self._model_dir + '/' + str(self._epoch) + '/'
+        root_dir = self._model_dir + str(self._epoch) + '/'
         os.mkdir(root_dir)
-        self._vae_model.save(root_dir + 'vae_model.h5')
         self._critic_model.save(root_dir + 'critic_model.h5')
-        self._generator.save(root_dir + 'generator.h5')
+        self._vae_generator_model.save(root_dir + '_vae_generator_model.h5')
         self._encoder.save(root_dir + 'encoder.h5')
         self._decoder_generator.save(root_dir + 'decoder_generator.h5')
         self._critic.save(root_dir + 'critic.h5')
 
     def _generate_dataset(self):
-        z_samples = np.random.normal(0, 1, (self._dataset_generation_size, self._latent_dim))
+        z_samples = np.random.normal(0, 1, (self._dataset_size, self._latent_dim))
         generated_dataset = self._generator.predict(z_samples)
         np.save(self._generated_datasets_dir + ('/%d_generated_data' % self._epoch), generated_dataset)
-
-    def get_models(self):
-        return self._generator, self._critic, self._vae_model, self._critic_model
-
-    def _apply_lr_decay(self):
-        models = [self._vae_model, self._critic_model]
-        utils.apply_lr_decay(models, self._lr_decay_factor)
