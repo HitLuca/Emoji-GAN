@@ -5,10 +5,10 @@ import urllib.request
 
 import imageio
 import numpy as np
+from numpy import ndarray
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('setup_datasets')
-
 
 img_folder = 'dataset/img/'
 
@@ -25,7 +25,7 @@ companies = ['apple', 'facebook', 'google', 'messenger', 'twitter']
 resolutions = [16, 20, 32, 64]
 
 
-def download_dataset(img_folder):
+def download_dataset(img_folder: str) -> None:
     logger.info('downloading dataset...')
     for company in companies:
         for resolution in resolutions:
@@ -46,7 +46,7 @@ def download_dataset(img_folder):
     logger.info('done')
 
 
-def png_to_dataset(png, resolution):
+def png_to_dataset(png: ndarray, resolution: int) -> ndarray:
     emojis = []
     height, width, _ = png.shape
     for i in range(1, height, resolution + 2):

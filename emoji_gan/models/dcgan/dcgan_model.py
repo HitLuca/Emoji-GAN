@@ -1,8 +1,9 @@
 import os
 
 import numpy as np
+from keras.utils import plot_model
+from numpy import ndarray
 
-import emoji_gan.utils
 from emoji_gan.models.abstract_gan.abstract_gan_model import AbstractGAN
 from emoji_gan.models.dcgan import dcgan_utils
 from emoji_gan.utils.utils import plot_save_losses, plot_save_latent_space, plot_save_samples
@@ -37,7 +38,7 @@ class DCGAN(AbstractGAN):
 
         self._build_models()
 
-    def _build_models(self):
+    def _build_models(self) -> None:
         self._generator = dcgan_utils.build_generator(self._latent_dim, self._resolution)
         self._discriminator = dcgan_utils.build_discriminator(self._resolution)
 
@@ -50,10 +51,13 @@ class DCGAN(AbstractGAN):
                                                                           self._discriminator,
                                                                           self._latent_dim,
                                                                           self._resolution,
-                                                                          self._channels,
                                                                           self._discriminator_lr)
 
-    def train(self, dataset, *_):
+    def _save_models_architectures(self) -> None:
+        plot_model(self._generator, to_file=self._run_dir + 'generator.png')
+        plot_model(self._discriminator, to_file=self._run_dir + 'discriminator.png')
+
+    def train(self, dataset: ndarray, *_) -> list:
         ones = np.ones((self._batch_size, 1))
         zeros = np.zeros((self._batch_size, 1))
 
@@ -110,14 +114,14 @@ class DCGAN(AbstractGAN):
 
         return self._losses
 
-    def _save_outputs(self):
+    def _save_outputs(self) -> None:
         noise = np.random.normal(0, 1, (self._outputs_rows * self._outputs_columns, self._latent_dim))
         generated_samples = self._generator.predict(noise)
 
         plot_save_samples(generated_samples, self._outputs_rows, self._outputs_columns, self._resolution,
                           self._channels, self._outputs_dir, self._epoch)
 
-    def _save_latent_space(self):
+    def _save_latent_space(self) -> None:
         latent_space_inputs = np.zeros((self._latent_space_rows * self._latent_space_columns, self._latent_dim))
 
         for i, v_i in enumerate(np.linspace(-1.5, 1.5, self._latent_space_rows, True)):
@@ -129,10 +133,10 @@ class DCGAN(AbstractGAN):
         plot_save_latent_space(generated_data, self._latent_space_rows, self._latent_space_columns,
                                self._resolution, self._channels, self._outputs_dir, self._epoch)
 
-    def _save_losses(self):
+    def _save_losses(self) -> None:
         plot_save_losses(self._losses[:2], ['generator', 'discriminator'], self._outputs_dir, 'gan_loss')
 
-    def _save_models(self):
+    def _save_models(self) -> None:
         root_dir = self._model_dir + str(self._epoch) + '/'
         os.mkdir(root_dir)
         self._discriminator_model.save(root_dir + 'discriminator_model.h5')
@@ -140,7 +144,7 @@ class DCGAN(AbstractGAN):
         self._generator.save(root_dir + 'generator.h5')
         self._discriminator.save(root_dir + 'discriminator.h5')
 
-    def _generate_dataset(self):
+    def _generate_dataset(self) -> None:
         z_samples = np.random.normal(0, 1, (self._dataset_size, self._latent_dim))
         generated_dataset = self._generator.predict(z_samples)
         np.save(self._generated_datasets_dir + ('/%d_generated_data' % self._epoch), generated_dataset)

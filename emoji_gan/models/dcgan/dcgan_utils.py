@@ -1,11 +1,12 @@
 from keras import Model, Input
-from keras.layers import Dense, LeakyReLU, Reshape, UpSampling2D, Conv2D, MaxPooling2D, Flatten, Add
+from keras.layers import Dense, LeakyReLU, Reshape, Conv2D, Flatten
 from keras.optimizers import Adam
 
 from emoji_gan.utils.gan_utils import deconv_series, conv_series, set_model_trainable
 
 
-def build_generator(latent_dim, resolution, filters=32, kernel_size=3, channels=3):
+def build_generator(latent_dim: int, resolution: int, filters: int = 32, kernel_size: int = 3,
+                    channels: int = 3) -> Model:
     image_size = 4
 
     generator_inputs = Input((latent_dim,))
@@ -24,7 +25,7 @@ def build_generator(latent_dim, resolution, filters=32, kernel_size=3, channels=
     return generator
 
 
-def build_discriminator(resolution, filters=32, kernel_size=3, channels=3):
+def build_discriminator(resolution: int, filters: int = 32, kernel_size: int = 3, channels: int = 3) -> Model:
     image_size = resolution
 
     discriminator_inputs = Input((resolution, resolution, channels))
@@ -40,7 +41,7 @@ def build_discriminator(resolution, filters=32, kernel_size=3, channels=3):
     return critic
 
 
-def build_generator_model(generator, discriminator, latent_dim, generator_lr):
+def build_generator_model(generator: Model, discriminator: Model, latent_dim: int, generator_lr: float) -> Model:
     set_model_trainable(generator, True)
     set_model_trainable(discriminator, False)
 
@@ -54,7 +55,8 @@ def build_generator_model(generator, discriminator, latent_dim, generator_lr):
     return generator_model
 
 
-def build_discriminator_model(generator, discriminator, latent_dim, resolution, channels, discriminator_lr):
+def build_discriminator_model(generator: Model, discriminator: Model, latent_dim: int, resolution: int,
+                              discriminator_lr: float, channels: int = 3) -> Model:
     set_model_trainable(generator, False)
     set_model_trainable(discriminator, True)
 

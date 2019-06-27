@@ -16,7 +16,7 @@ def plot_save_samples(generated_samples, rows, columns, resolution, channels, ou
         for j in range(columns):
             plt.subplot(rows, columns, k)
             if titles is not None:
-                plt.title(titles[k-1])
+                plt.title(titles[k - 1])
             plt.imshow((generated_samples[k - 1].reshape(resolution, resolution, channels) + 1.0) / 2.0)
             plt.xticks([])
             plt.yticks([])

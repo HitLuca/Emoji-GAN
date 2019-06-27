@@ -2,14 +2,14 @@ from functools import partial
 
 from keras import Model
 from keras.layers import *
-from keras.layers.merge import _Merge
 from keras.optimizers import Adam
 
-from emoji_gan.utils.gan_utils import deconv_series, conv_series, set_model_trainable, wasserstein_loss, \
+from emoji_gan.utils.gan_utils import set_model_trainable, wasserstein_loss, \
     gradient_penalty_loss, RandomWeightedAverage, deconv_res_series, conv_res_series
 
 
-def build_generator(latent_dim, classes_n, resolution, filters=32, kernel_size=3, channels=3):
+def build_generator(latent_dim: int, classes_n: int, resolution: int, filters: int = 32, kernel_size: int = 3,
+                    channels: int = 3) -> Model:
     image_size = 4
     filters *= int(resolution / image_size / 2)
 
@@ -18,7 +18,7 @@ def build_generator(latent_dim, classes_n, resolution, filters=32, kernel_size=3
 
     generated = Concatenate()([latent_input, conditional_input])
 
-    generated = Dense(image_size*image_size*8)(generated)
+    generated = Dense(image_size * image_size * 8)(generated)
     generated = LeakyReLU()(generated)
 
     generated = Reshape((image_size, image_size, 8))(generated)
@@ -33,7 +33,7 @@ def build_generator(latent_dim, classes_n, resolution, filters=32, kernel_size=3
     return generator
 
 
-def build_critic(resolution, classes_n, filters=32, kernel_size=3, channels=3):
+def build_critic(resolution: int, classes_n: int, filters: int = 32, kernel_size: int = 3, channels: int = 3) -> Model:
     image_size = resolution
 
     critic_inputs = Input((resolution, resolution, channels))
@@ -57,7 +57,8 @@ def build_critic(resolution, classes_n, filters=32, kernel_size=3, channels=3):
     return critic
 
 
-def build_generator_model(generator, critic, latent_dim, classes_n, generator_lr):
+def build_generator_model(generator: Model, critic: Model, latent_dim: int, classes_n: int,
+                          generator_lr: float) -> Model:
     set_model_trainable(generator, True)
     set_model_trainable(critic, False)
 
@@ -73,8 +74,9 @@ def build_generator_model(generator, critic, latent_dim, classes_n, generator_lr
     return generator_model
 
 
-def build_critic_model(generator, critic, latent_dim, resolution, classes_n, batch_size, critic_lr,
-                       gradient_penalty_weight, channels=3):
+def build_critic_model(generator: Model, critic: Model, latent_dim: int, resolution: int, classes_n: int,
+                       batch_size: int, critic_lr: float,
+                       gradient_penalty_weight: int, channels: int = 3) -> Model:
     set_model_trainable(generator, False)
     set_model_trainable(critic, True)
 

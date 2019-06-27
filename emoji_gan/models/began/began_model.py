@@ -3,6 +3,7 @@ import os
 import keras.backend as K
 import numpy as np
 from keras.utils import plot_model
+from numpy import ndarray
 
 from emoji_gan.models.abstract_gan.abstract_gan_model import AbstractGAN
 from emoji_gan.models.began import began_utils
@@ -48,7 +49,7 @@ class BEGAN(AbstractGAN):
         self._build_models()
         self._save_models_architectures()
 
-    def _build_models(self):
+    def _build_models(self) -> None:
         self._generator = began_utils.build_decoder(self._latent_dim, self._resolution)
         self._discriminator = began_utils.build_discriminator(self._latent_dim, self._resolution)
 
@@ -59,11 +60,11 @@ class BEGAN(AbstractGAN):
                                                                   self._latent_dim, self._initial_lr,
                                                                   self._loss_exponent)
 
-    def _save_models_architectures(self):
+    def _save_models_architectures(self) -> None:
         plot_model(self._generator, to_file=self._run_dir + 'generator.png')
         plot_model(self._discriminator, to_file=self._run_dir + 'discriminator.png')
 
-    def train(self, dataset, *_):
+    def train(self, dataset: ndarray, *_) -> list:
         zeros = np.zeros(self._batch_size)
         zeros_2 = np.zeros(self._batch_size * 2)
 
@@ -103,8 +104,8 @@ class BEGAN(AbstractGAN):
 
                 generator_loss = self._generator_model.train_on_batch(noise_generator, zeros_2)
 
-                discriminator_loss_real = np.mean(discriminator_loss_real)
-                discriminator_loss_generated = np.mean(discriminator_loss_generated)
+                discriminator_loss_real = float(np.mean(discriminator_loss_real))
+                discriminator_loss_generated = float(np.mean(discriminator_loss_generated))
 
                 discriminator_loss = float(discriminator_loss_real - self._k * discriminator_loss_generated)
 
@@ -157,14 +158,14 @@ class BEGAN(AbstractGAN):
 
         return self._losses
 
-    def _save_outputs(self):
+    def _save_outputs(self) -> None:
         noise = np.random.uniform(-1, 1, (self._outputs_rows * self._outputs_columns, self._latent_dim))
         generated_samples = self._generator.predict(noise)
 
         plot_save_samples(generated_samples, self._outputs_rows, self._outputs_columns, self._resolution,
                           self._channels, self._outputs_dir, self._epoch)
 
-    def _save_latent_space(self):
+    def _save_latent_space(self) -> None:
         latent_space_inputs = np.zeros((self._latent_space_rows * self._latent_space_columns, self._latent_dim))
 
         for i, v_i in enumerate(np.linspace(-1, 1, self._latent_space_rows, True)):
@@ -176,16 +177,12 @@ class BEGAN(AbstractGAN):
         plot_save_latent_space(generated_data, self._latent_space_rows, self._latent_space_columns,
                                self._resolution, self._channels, self._outputs_dir, self._epoch)
 
-    def _save_losses(self):
+    def _save_losses(self) -> None:
         plot_save_losses(self._losses[:2], ['generator', 'discriminator'], self._outputs_dir, 'gan_loss')
         plot_save_losses(self._losses[2:3], ['k'], self._outputs_dir, 'k')
         plot_save_losses(self._losses[3:4], ['m_value'], self._outputs_dir, 'm_value')
 
-    def generate_random_samples(self, n):
-        noise = np.random.uniform(-1, 1, (n, self._latent_dim))
-        return self._generator.predict(noise)
-
-    def _save_models(self):
+    def _save_models(self) -> None:
         root_dir = self._model_dir + str(self._epoch) + '/'
         os.mkdir(root_dir)
         self._discriminator_model.save(root_dir + 'discriminator_model.h5')
@@ -193,12 +190,12 @@ class BEGAN(AbstractGAN):
         self._generator.save(root_dir + 'generator.h5')
         self._discriminator.save(root_dir + 'discriminator.h5')
 
-    def _generate_dataset(self):
+    def _generate_dataset(self) -> None:
         z_samples = np.random.uniform(-1, 1, (self._dataset_size, self._latent_dim))
         generated_dataset = self._generator.predict(z_samples)
         np.save(self._generated_datasets_dir + ('/%d_generated_data' % self._epoch), generated_dataset.astype)
 
-    def _update_k(self, discriminator_loss_real, discriminator_loss_generated):
+    def _update_k(self, discriminator_loss_real: float, discriminator_loss_generated: float) -> None:
         self._k = self._k + self._lambda_k * (
                 self._gamma * discriminator_loss_real - discriminator_loss_generated)
         self._k = np.clip(self._k, 0.0, 1.0)

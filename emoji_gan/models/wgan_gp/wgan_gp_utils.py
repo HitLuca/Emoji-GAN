@@ -1,17 +1,16 @@
 from functools import partial
 
 from keras import Model, Input
-from keras.layers import Dense, LeakyReLU, Reshape, Conv2D, Flatten, GlobalAveragePooling2D
+from keras.layers import Dense, LeakyReLU, Reshape, Conv2D, Flatten
 from keras.optimizers import Adam
-from keras.utils import plot_model
 
-from emoji_gan.utils.gan_utils import conv_series, deconv_series, gradient_penalty_loss, \
+from emoji_gan.utils.gan_utils import gradient_penalty_loss, \
     RandomWeightedAverage, set_model_trainable, deconv_res_series, conv_res_series
-
 from emoji_gan.utils.gan_utils import wasserstein_loss
 
 
-def build_generator(latent_dim, resolution, filters=32, kernel_size=3, channels=3):
+def build_generator(latent_dim: int, resolution: int, filters: int = 32, kernel_size: int = 3,
+                    channels: int = 3) -> Model:
     image_size = 4
     filters *= int(resolution / image_size / 2)
 
@@ -33,7 +32,7 @@ def build_generator(latent_dim, resolution, filters=32, kernel_size=3, channels=
     return generator
 
 
-def build_critic(resolution, filters=32, kernel_size=3, channels=3):
+def build_critic(resolution: int, filters: int = 32, kernel_size: int = 3, channels: int = 3) -> Model:
     image_size = resolution
 
     critic_inputs = Input((resolution, resolution, channels))
@@ -51,7 +50,7 @@ def build_critic(resolution, filters=32, kernel_size=3, channels=3):
     return critic
 
 
-def build_generator_model(generator, critic, latent_dim, generator_lr):
+def build_generator_model(generator: Model, critic: Model, latent_dim: int, generator_lr: float) -> Model:
     set_model_trainable(generator, True)
     set_model_trainable(critic, False)
 
@@ -66,8 +65,9 @@ def build_generator_model(generator, critic, latent_dim, generator_lr):
     return generator_model
 
 
-def build_critic_model(generator, critic, latent_dim, resolution, channels, batch_size, critic_lr,
-                       gradient_penalty_weight):
+def build_critic_model(generator: Model, critic: Model, latent_dim: int, resolution: int, batch_size: int,
+                       critic_lr: float,
+                       gradient_penalty_weight: int, channels: int = 3) -> Model:
     set_model_trainable(generator, False)
     set_model_trainable(critic, True)
 

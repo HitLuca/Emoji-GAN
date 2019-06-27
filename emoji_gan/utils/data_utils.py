@@ -1,4 +1,5 @@
 import json
+from typing import Tuple
 
 import numpy as np
 from keras.datasets import mnist
@@ -6,40 +7,14 @@ from numpy import ndarray
 from scipy.misc import imresize
 
 
-def load_emoji_dataset(resolution, channels, shuffle):
-    companies = np.load('dataset/companies_names.npy')
-    categories_names = np.load('dataset/categories_names.npy')
-
-    dataset = np.load('dataset/emojis_' + str(resolution) + '.npy')
-    classes = np.load('dataset/emojis_classes.npy')[:, 1]
-
-    if shuffle:
-        perm = np.random.permutation(dataset.shape[0])
-        dataset = dataset[perm]
-        classes = classes[perm]
-
-    if channels == 1 or channels == 3:
-        dataset = (dataset + 1) / 2.0
-        alphas = dataset[:, :, :, -1:]
-
-        if channels == 1:
-            dataset = np.expand_dims(np.dot(dataset[:, :, :, :3], [0.299, 0.587, 0.114]), -1)
-            dataset = dataset * alphas + np.ones(dataset.shape) * (1-alphas)
-        elif channels == 3:
-            dataset = dataset[:, :, :, :-1] * alphas + np.ones(dataset.shape)[:, :, :, :-1] * (1-alphas)
-        dataset = (dataset * 2) - 1.0
-
-    return dataset, classes, companies, categories_names
-
-
-def get_dataset_info_from_run(run_filepath):
+def get_dataset_info_from_run(run_filepath: str) -> Tuple[dict, dict]:
     with open(run_filepath + 'run_config.json', 'r') as f:
         dict = json.load(f)
 
         return dict['resolution'], dict['channels']
 
 
-def load_dataset(dataset_folder: str, resolution: int, shuffle: bool=True):
+def load_dataset(dataset_folder: str, resolution: int, shuffle: bool = True) -> Tuple[ndarray, ndarray, list, list]:
     dataset: ndarray = np.load(dataset_folder + 'emojis_' + str(resolution) + '.npy')
     classes: ndarray = np.load('dataset/emojis_classes.npy')
 
@@ -61,7 +36,7 @@ def load_dataset(dataset_folder: str, resolution: int, shuffle: bool=True):
     return dataset, classes, companies, categories
 
 
-def load_mnist(resolution:int, shuffle: bool=True):
+def load_mnist(resolution: int, shuffle: bool = True) -> ndarray:
     (x_train, _), _ = mnist.load_data()
     x_train = np.stack((x_train, x_train, x_train), -1)
 

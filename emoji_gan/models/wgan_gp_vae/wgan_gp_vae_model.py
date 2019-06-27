@@ -2,6 +2,7 @@ import os
 
 import numpy as np
 from keras.utils import plot_model
+from numpy import ndarray
 
 from emoji_gan.models.abstract_gan.abstract_gan_model import AbstractGAN
 from emoji_gan.models.wgan_gp_vae import wgan_gp_vae_utils
@@ -42,7 +43,7 @@ class WGAN_GP_VAE(AbstractGAN):
         self._build_models()
         self._save_models_architectures()
 
-    def _build_models(self):
+    def _build_models(self) -> None:
         self._encoder = wgan_gp_vae_utils.build_encoder(self._latent_dim, self._resolution)
         self._decoder_generator = wgan_gp_vae_utils.build_decoder(self._latent_dim, self._resolution)
         self._critic = wgan_gp_vae_utils.build_critic(self._resolution)
@@ -62,17 +63,16 @@ class WGAN_GP_VAE(AbstractGAN):
                                                                   self._critic,
                                                                   self._latent_dim,
                                                                   self._resolution,
-                                                                  self._channels,
                                                                   self._batch_size,
                                                                   self._critic_lr,
                                                                   self._gradient_penalty_weight)
 
-    def _save_models_architectures(self):
+    def _save_models_architectures(self) -> None:
         plot_model(self._encoder, to_file=self._run_dir + 'encoder.png')
         plot_model(self._decoder_generator, to_file=self._run_dir + 'decoder_generator.png')
         plot_model(self._critic, to_file=self._run_dir + 'critic.png')
 
-    def train(self, dataset, *_):
+    def train(self, dataset: ndarray, *_) -> list:
         ones = np.ones((self._batch_size, 1))
         neg_ones = -ones
         zeros = np.zeros((self._batch_size, 1))
@@ -137,14 +137,14 @@ class WGAN_GP_VAE(AbstractGAN):
 
         return self._losses
 
-    def _save_outputs(self):
+    def _save_outputs(self) -> None:
         noise = np.random.normal(0, 1, (self._outputs_rows * self._outputs_columns, self._latent_dim))
         generated_samples = self._generator.predict(noise)
 
         plot_save_samples(generated_samples, self._outputs_rows, self._outputs_columns, self._resolution,
-                                self._channels, self._outputs_dir, self._epoch)
+                          self._channels, self._outputs_dir, self._epoch)
 
-    def _save_latent_space(self):
+    def _save_latent_space(self) -> None:
         latent_space_inputs = np.zeros((self._latent_space_rows * self._latent_space_columns, self._latent_dim))
 
         for i, v_i in enumerate(np.linspace(-1.5, 1.5, self._latent_space_rows, True)):
@@ -154,13 +154,13 @@ class WGAN_GP_VAE(AbstractGAN):
         generated_data = self._generator.predict(latent_space_inputs)
 
         plot_save_latent_space(generated_data, self._latent_space_rows, self._latent_space_columns,
-                                     self._resolution, self._channels, self._outputs_dir, self._epoch)
+                               self._resolution, self._channels, self._outputs_dir, self._epoch)
 
-    def _save_losses(self):
+    def _save_losses(self) -> None:
         plot_save_losses(self._losses[:2], ['generator', 'critic'], self._outputs_dir, 'gan_loss')
         plot_save_losses(self._losses[2:3], ['vae'], self._outputs_dir, 'vae_loss')
 
-    def _save_models(self):
+    def _save_models(self) -> None:
         root_dir = self._model_dir + str(self._epoch) + '/'
         os.mkdir(root_dir)
         self._critic_model.save(root_dir + 'critic_model.h5')
@@ -169,7 +169,7 @@ class WGAN_GP_VAE(AbstractGAN):
         self._decoder_generator.save(root_dir + 'decoder_generator.h5')
         self._critic.save(root_dir + 'critic.h5')
 
-    def _generate_dataset(self):
+    def _generate_dataset(self) -> None:
         z_samples = np.random.normal(0, 1, (self._dataset_size, self._latent_dim))
         generated_dataset = self._generator.predict(z_samples)
         np.save(self._generated_datasets_dir + ('/%d_generated_data' % self._epoch), generated_dataset)

@@ -21,9 +21,8 @@ DATASET_SIZE = 1000
 
 LATENT_DIM = 100
 
-# classes = [company, category]
 
-def train(model_type):
+def train(model_type: str) -> None:
     dataset, classes, companies, categories = data_utils.load_dataset(DATASET_FOLDER, RESOLUTION, shuffle=True)
 
     dataset_companies, dataset_categories = classes[:, 0], classes[:, 1]

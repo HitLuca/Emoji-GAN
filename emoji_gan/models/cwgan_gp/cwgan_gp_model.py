@@ -2,6 +2,7 @@ import os
 
 import numpy as np
 from keras.utils import plot_model, to_categorical
+from numpy import ndarray
 
 from emoji_gan.models.abstract_gan.abstract_gan_model import AbstractGAN
 from emoji_gan.models.cwgan_gp import cwgan_gp_utils
@@ -43,7 +44,7 @@ class CWGAN_GP(AbstractGAN):
         self._build_models()
         self._save_models_architectures()
 
-    def _build_models(self):
+    def _build_models(self) -> None:
         self._generator = cwgan_gp_utils.build_generator(self._latent_dim, self._classes_n, self._resolution)
         self._critic = cwgan_gp_utils.build_critic(self._resolution, self._classes_n)
         self._generator_model = cwgan_gp_utils.build_generator_model(self._generator, self._critic, self._latent_dim,
@@ -53,11 +54,11 @@ class CWGAN_GP(AbstractGAN):
                                                                self._batch_size, self._critic_lr,
                                                                self._gradient_penalty_weight)
 
-    def _save_models_architectures(self):
+    def _save_models_architectures(self) -> None:
         plot_model(self._generator, to_file=self._run_dir + 'generator.png')
         plot_model(self._critic, to_file=self._run_dir + 'critic.png')
 
-    def train(self, dataset, classes):
+    def train(self, dataset: ndarray, classes: ndarray) -> list:
         ones = np.ones((self._batch_size, 1))
         neg_ones = -ones
         zeros = np.zeros((self._batch_size, 1))
@@ -117,7 +118,7 @@ class CWGAN_GP(AbstractGAN):
 
         return self._losses
 
-    def _save_outputs(self):
+    def _save_outputs(self) -> None:
         noise = np.random.normal(0, 1, (self._outputs_rows * self._outputs_columns, self._latent_dim))
         random_classes = np.random.randint(0, self._classes_n, self._outputs_rows * self._outputs_columns)
 
@@ -126,7 +127,7 @@ class CWGAN_GP(AbstractGAN):
         plot_save_samples(generated_samples, self._outputs_rows, self._outputs_columns, self._resolution,
                           self._channels, self._outputs_dir, self._epoch, np.array(self._classes)[random_classes])
 
-    def _save_latent_space(self):
+    def _save_latent_space(self) -> None:
         latent_space_inputs = np.zeros((self._latent_space_rows * self._latent_space_columns, self._latent_dim))
         random_class = np.random.randint(0, self._classes_n)
         latent_space_classes = np.ones(self._latent_space_rows * self._latent_space_columns) * random_class
@@ -141,10 +142,10 @@ class CWGAN_GP(AbstractGAN):
                                self._resolution, self._channels, self._outputs_dir, self._epoch,
                                self._classes[random_class])
 
-    def _save_losses(self):
+    def _save_losses(self) -> None:
         plot_save_losses(self._losses[:2], ['generator', 'critic'], self._outputs_dir, 'gan_loss')
 
-    def _save_models(self):
+    def _save_models(self) -> None:
         root_dir = self._model_dir + str(self._epoch) + '/'
         os.mkdir(root_dir)
         self._critic_model.save(root_dir + 'critic_model.h5')
@@ -152,7 +153,7 @@ class CWGAN_GP(AbstractGAN):
         self._generator.save(root_dir + 'generator.h5')
         self._critic.save(root_dir + 'critic.h5')
 
-    def _generate_dataset(self):
+    def _generate_dataset(self) -> None:
         z_samples = np.random.normal(0, 1, (self._dataset_size, self._latent_dim))
         random_classes = np.random.randint(0, self._classes_n, self._dataset_size)
 

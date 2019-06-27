@@ -1,13 +1,13 @@
 import keras.backend as K
 from keras import Model, Input
-from keras.layers import Dense, Reshape, UpSampling2D, Conv2D, MaxPooling2D, Flatten, Conv2DTranspose, Add, \
-    Activation, Lambda, LeakyReLU
+from keras.layers import Dense, Reshape, Conv2D, Flatten, Lambda, LeakyReLU
 from keras.optimizers import Adam
 
 from emoji_gan.utils.gan_utils import deconv_res_series, conv_res_series, set_model_trainable
 
 
-def build_decoder(latent_dim, resolution, filters=32, kernel_size=3, channels=3):
+def build_decoder(latent_dim: int, resolution: int, filters: int = 32, kernel_size: int = 3,
+                  channels: int = 3) -> Model:
     image_size = 4
     filters *= int(resolution / image_size / 2)
 
@@ -29,7 +29,8 @@ def build_decoder(latent_dim, resolution, filters=32, kernel_size=3, channels=3)
     return decoder
 
 
-def build_encoder(latent_dim, resolution, filters=32, kernel_size=3, channels=3):
+def build_encoder(latent_dim: int, resolution: int, filters: int = 32, kernel_size: int = 3,
+                  channels: int = 3) -> Model:
     image_size = resolution
 
     encoder_inputs = Input((resolution, resolution, channels))
@@ -46,7 +47,7 @@ def build_encoder(latent_dim, resolution, filters=32, kernel_size=3, channels=3)
     return encoder
 
 
-def build_discriminator(latent_dim, resolution, channels=3):
+def build_discriminator(latent_dim: int, resolution: int, channels: int = 3) -> Model:
     input_samples = Input((resolution, resolution, channels))
 
     encoder = build_encoder(latent_dim, resolution)
@@ -60,7 +61,8 @@ def build_discriminator(latent_dim, resolution, channels=3):
     return discriminator
 
 
-def build_generator_model(generator, discriminator, latent_dim, generator_lr, loss_exponent):
+def build_generator_model(generator: Model, discriminator: Model, latent_dim: int, generator_lr: float,
+                          loss_exponent: int) -> Model:
     set_model_trainable(discriminator, False)
 
     input_noise = Input((latent_dim,))
@@ -74,7 +76,8 @@ def build_generator_model(generator, discriminator, latent_dim, generator_lr, lo
     return generator_model
 
 
-def build_discriminator_model(discriminator, resolution, discriminator_lr, loss_exponent, channels = 3):
+def build_discriminator_model(discriminator: Model, resolution: int, discriminator_lr: float, loss_exponent: int,
+                              channels: int = 3) -> Model:
     set_model_trainable(discriminator, True)
 
     real_samples = Input((resolution, resolution, channels))
@@ -102,10 +105,12 @@ def ln_loss(y_true, y_pred, loss_exponent):
 def generator_loss(ln_generated):
     def loss_function(_, y_pred):
         return ln_generated
+
     return loss_function
 
 
 def discriminator_loss(k, ln_real, ln_generated):
     def loss_function(_, y_pred):
         return ln_real - k * ln_generated
+
     return loss_function

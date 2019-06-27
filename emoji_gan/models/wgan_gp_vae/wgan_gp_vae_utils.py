@@ -1,14 +1,16 @@
 from functools import partial
+from typing import Tuple
 
 from keras import Model, Input
 from keras.layers import Dense, LeakyReLU, Reshape, Conv2D, Flatten, Lambda
 from keras.optimizers import Adam
 
-from emoji_gan.utils.gan_utils import conv_series, deconv_series, vae_loss, gradient_penalty_loss, \
+from emoji_gan.utils.gan_utils import vae_loss, gradient_penalty_loss, \
     RandomWeightedAverage, sampling, set_model_trainable, wasserstein_loss, conv_res_series, deconv_res_series
 
 
-def build_encoder(latent_dim, resolution, filters=32, kernel_size=3, channels=3):
+def build_encoder(latent_dim: int, resolution: int, filters: int = 32, kernel_size: int = 3,
+                  channels: int = 3) -> Model:
     image_size = resolution
 
     encoder_inputs = Input((resolution, resolution, channels))
@@ -27,7 +29,8 @@ def build_encoder(latent_dim, resolution, filters=32, kernel_size=3, channels=3)
     return encoder
 
 
-def build_decoder(latent_dim, resolution, filters=32, kernel_size=3, channels=3):
+def build_decoder(latent_dim: int, resolution: int, filters: int = 32, kernel_size: int = 3,
+                  channels: int = 3) -> Model:
     image_size = 4
     filters *= int(resolution / image_size / 2)
 
@@ -49,7 +52,7 @@ def build_decoder(latent_dim, resolution, filters=32, kernel_size=3, channels=3)
     return decoder
 
 
-def build_critic(resolution, filters=32, kernel_size=3, channels=3):
+def build_critic(resolution: int, filters: int = 32, kernel_size: int = 3, channels: int = 3) -> Model:
     image_size = resolution
 
     critic_inputs = Input((resolution, resolution, channels))
@@ -67,7 +70,8 @@ def build_critic(resolution, filters=32, kernel_size=3, channels=3):
     return critic
 
 
-def build_vae_generator_model(encoder, decoder_generator, critic, latent_dim, resolution, channels, gamma, vae_lr):
+def build_vae_generator_model(encoder: Model, decoder_generator: Model, critic: Model, latent_dim: int, resolution: int,
+                              channels: int, gamma: float, vae_lr: float) -> Tuple[Model, Model]:
     set_model_trainable(encoder, True)
     set_model_trainable(decoder_generator, True)
     set_model_trainable(critic, False)
@@ -92,8 +96,8 @@ def build_vae_generator_model(encoder, decoder_generator, critic, latent_dim, re
     return vae_generator_model, generator_model
 
 
-def build_critic_model(encoder, decoder_generator, critic, latent_dim, resolution, channels, batch_size, critic_lr,
-                       gradient_penalty_weight):
+def build_critic_model(encoder: Model, decoder_generator: Model, critic: Model, latent_dim: int, resolution: int,
+                       batch_size: int, critic_lr: float, gradient_penalty_weight: int, channels: int = 3) -> Model:
     set_model_trainable(encoder, False)
     set_model_trainable(decoder_generator, False)
     set_model_trainable(critic, True)
