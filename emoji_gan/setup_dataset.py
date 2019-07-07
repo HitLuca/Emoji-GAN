@@ -10,7 +10,8 @@ from numpy import ndarray
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('setup_datasets')
 
-img_folder = 'dataset/img/'
+dataset_folder = '../dataset/'
+img_folder = dataset_folder + 'img/'
 
 emoji_repo_url = 'https://github.com/iamcal/emoji-data/'
 img_repo_url = emoji_repo_url + 'raw/master/'
@@ -62,14 +63,14 @@ if __name__ == "__main__":
         os.makedirs(img_folder)
         download_dataset(img_folder)
 
-    categories_data = json.load(open('categories.json', 'r'))
-    categories_names = list(categories_data.keys())
-    emoji_data = json.load(open('emoji.json', 'r'))
+    categories_data = json.load(open(dataset_folder + 'categories.json', 'r'))
+    categories_names = list(categories_data.keys())[:-1]  # Removing skin tones as it won't have samples
+    emoji_data = json.load(open(dataset_folder + 'emoji.json', 'r'))
 
-    with open('companies_names.json', 'w') as f:
+    with open(dataset_folder + 'companies_names.json', 'w') as f:
         json.dump(companies, f)
 
-    with open('categories_names.json', 'w') as f:
+    with open(dataset_folder + 'categories_names.json', 'w') as f:
         json.dump(categories_names, f)
 
     logger.info('generating datasets...')
@@ -108,7 +109,7 @@ if __name__ == "__main__":
 
         classes = np.array(classes)
 
-        np.save('emojis_' + str(resolution) + '.npy', dataset.astype(np.float32))
-        np.save('emojis_classes' + '.npy', classes)
+        np.save(dataset_folder + 'emojis_' + str(resolution) + '.npy', dataset.astype(np.float32))
+        np.save(dataset_folder + 'emojis_classes' + '.npy', classes)
 
     logger.info('done')
