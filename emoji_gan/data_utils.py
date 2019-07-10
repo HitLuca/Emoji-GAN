@@ -39,13 +39,12 @@ def load_emoji_dataset(dataset_folder: str, resolution: int, shuffle: bool = Tru
 
 def load_mnist(resolution: int, shuffle: bool = True) -> ndarray:
     (x_train, _), _ = mnist.load_data()
-    x_train = np.stack((x_train, x_train, x_train), -1)
 
     new_images = []
     for i in range(x_train.shape[0]):
         new_images.append(imresize(x_train[i], (resolution, resolution)))
 
-    dataset = np.array(new_images) / 255.0
+    dataset = np.expand_dims(np.array(new_images) / 255.0, -1)
 
     if shuffle:
         perm = np.random.permutation(dataset.shape[0])
