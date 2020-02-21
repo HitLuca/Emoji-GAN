@@ -14,7 +14,7 @@ The data used comes in 4 different resolutions, 16, 20, 32 and 64 pixels RGBA.
 ## Project structure
 The [```dataset```](dataset) folder contains the various datasets to be used during training.
 
-The [```emoij_gan```](emoji_gan) folder contains all the code necessary to download the dataset and train the models
+The [```emoji_gan```](emoji_gan) folder contains all the code necessary to download the dataset and train the models
 
 Outputs of the various runs will be stored in the [```outputs```]() folder.
 
